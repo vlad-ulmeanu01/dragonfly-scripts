@@ -33,7 +33,7 @@ class PolicyNetB(torch.nn.Module):
         super(PolicyNetB, self).__init__()
 
         G = utils.G
-        self.input_len = G * (G-1) // 2 + G**2
+        self.input_len = G * (G-1) // 2 + G * (G-1)
 
         self.forbidden_mask = np.zeros((G, G, G), dtype = np.bool_)
         for z in range(G):
@@ -55,18 +55,18 @@ class PolicyNetB(torch.nn.Module):
         )
 
     def cast_input(self, X: torch.tensor):
-        cast_X = np.zeros(self.input_len, dtype = np.float32)
+        cast_X = np.zeros((len(X), self.input_len), dtype = np.float32)
 
         ind = 0
         for i in range(utils.G):
             for j in range(i+1, utils.G):
-                cast_X[ind] = X[:, i, j].sum()
+                cast_X[:, ind] = X[:, :, i, j].sum(dim = -1)
                 ind += 1
 
         for z in range(utils.G):
             for i in range(utils.G):
                 if i != z:
-                    cast_X[ind] = X[z, i].sum()
+                    cast_X[:, ind] = X[:, z, i].sum(dim = -1)
                     ind += 1
 
         # normalizare:
@@ -78,6 +78,5 @@ class PolicyNetB(torch.nn.Module):
     def forward(self, X: torch.tensor):
         return F.softmax(
             torch.where(self.forbidden_mask, -utils.inf, self.layers(self.cast_input(X))),
-            dim = 0
+            dim = -1
         )
-
