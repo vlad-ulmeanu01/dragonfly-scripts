@@ -35,6 +35,13 @@ class PolicyNetB(torch.nn.Module):
         G = utils.G
         self.input_len = G * (G-1) // 2 + G**2
 
+        self.forbidden_mask = np.zeros((G, G, G), dtype = np.bool_)
+        for z in range(G):
+            self.forbidden_mask[z, z, :] = True
+            self.forbidden_mask[z, :, z] = True
+            self.forbidden_mask[:, z, z] = True
+        self.forbidden_mask = torch.from_numpy(self.forbidden_mask.flatten())
+
         self.layers = torch.nn.Sequential(
             torch.nn.Linear(self.input_len, G),
             torch.nn.ReLU(),
@@ -44,8 +51,7 @@ class PolicyNetB(torch.nn.Module):
             torch.nn.Linear(self.input_len, G),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.5),
-            torch.nn.Linear(G, G ** 3),
-            torch.nn.Softmax(dim = 0)
+            torch.nn.Linear(G, G ** 3)
         )
 
     def cast_input(self, X: torch.tensor):
@@ -70,4 +76,8 @@ class PolicyNetB(torch.nn.Module):
         return torch.from_numpy(cast_X)
 
     def forward(self, X: torch.tensor):
-        return self.layers(self.cast_input(X))
+        return F.softmax(
+            torch.where(self.forbidden_mask, -utils.inf, self.layers(self.cast_input(X))),
+            dim = 0
+        )
+

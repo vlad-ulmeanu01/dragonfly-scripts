@@ -2,6 +2,7 @@ import torch.nn.functional as F
 import numpy as np
 import random
 import torch
+import time
 
 import design
 import utils
@@ -66,16 +67,11 @@ def rollout_episode(pnet, X: torch.tensor):
 
         if state_scores[-1] > max_state_score:
             max_state_score = state_scores[-1]
-            best_X = X.detach()
+            best_X = X.detach().clone()
 
         # sample urmatoarea actiune: schimb in grupul g pozitia grupurilor i si j.
-
-        while True:
-            with torch.no_grad():
-                ind = F.softmax(policy_proba_dist, dim = 0).multinomial(num_samples = 1).item()
-            z, i, j = ind // G**2, (ind % G**2) // G, ind % G
-            if z != i and z != j and i != j and X[z, i, j] == 0.0:
-                break
+        ind = policy_proba_dist.multinomial(num_samples = 1).item()
+        z, i, j = ind // G**2, (ind % G**2) // G, ind % G
     
         log_probas.append(policy_proba_dist[ind])
 
@@ -86,6 +82,9 @@ def rollout_episode(pnet, X: torch.tensor):
     state_scores.append(evaluate_state(X.detach().numpy()))
 
     gains = [state_scores[t+1] - state_scores[t] for t in range(MAX_EPISODE_LEN)]
+
+    print(f"% of nonzero rewards: {round(sum([r != 0 for r in gains]) / MAX_EPISODE_LEN, 3)}", flush = True)
+
     for t in range(len(gains) - 2, -1, -1):
         gains[t] += gains[t+1]
 
@@ -95,22 +94,43 @@ def rollout_episode(pnet, X: torch.tensor):
 
 
 def main():
+    dbg_time_ht = {"new_start": 0.0, "rollout": 0.0, "backward": 0.0}
+
     pnet = design.PolicyNetB()
     optimizer = torch.optim.Adam(params = pnet.parameters())
 
-    best_episode_score = -inf
+    best_episode_score, best_X = -inf, None
     for cnt_episode in range(1, NUM_EPISODES + 1):
-        X = generate_new_start()
-        log_probas, max_state_score, best_X = rollout_episode(pnet, X)
+        t_start = time.time()
 
-        best_episode_score = max(best_episode_score, max_state_score)
-        print(f"{cnt_episode = }, {best_episode_score = }", flush = True)
+        X = generate_new_start()
+
+        dbg_time_ht["new_start"] += time.time() - t_start
+        t_start = time.time()
+
+        log_probas, ep_max_state_score, ep_best_X = rollout_episode(pnet, X)
+        
+        dbg_time_ht["rollout"] += time.time() - t_start
+
+        if best_episode_score < ep_max_state_score:
+            best_episode_score = ep_max_state_score
+            best_X = ep_best_X
+        
+        print(f"{cnt_episode = }, {best_episode_score = }, {ep_max_state_score = }", flush = True)
+
+        t_start = time.time()
 
         cumul_lp = -log_probas.sum()
 
         optimizer.zero_grad()
         cumul_lp.backward()
         optimizer.step()
+
+        del log_probas, max_state_score
+
+        dbg_time_ht["backward"] += time.time() - t_start
+
+        utils.print_debug_ht(dbg_time_ht)
 
 
 if __name__ == "__main__":
