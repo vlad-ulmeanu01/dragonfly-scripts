@@ -18,7 +18,7 @@ random.seed(SEED)
 
 
 def generate_new_start(batch_size: int):
-    X = np.zeros((batch_size, G, G, G), dtype = np.float32)
+    X = torch.zeros(batch_size, G, G, G, device = utils.DEVICE)
 
     for bs in range(batch_size):
         group_ids = list(range(G))
@@ -30,28 +30,28 @@ def generate_new_start(batch_size: int):
                         m, M = min(group[i], group[j]), max(group[i], group[j])
                         X[bs, z, m, M] = X[bs, z, M, m] = 1.0
 
-    return torch.from_numpy(X)
+    return X
 
 
-def evaluate_state(X: np.array):
-    score = np.zeros(len(X)) # len(X) = batch_size.
+def evaluate_state(X: torch.tensor):
+    score = torch.zeros(len(X), device = utils.DEVICE) # len(X) = batch_size.
 
     for i in range(G):
         for j in range(i+1, G):
-            score -= abs(X[:, :, i, j].sum(axis = -1) - EXPECTED)
+            score -= abs(X[:, :, i, j].sum(dim = -1) - EXPECTED)
 
     for z in range(G):
         for i in range(G):
             if i != z:
-                score -= abs(X[:, z, i].sum(axis = -1) - EXPECTED)
+                score -= abs(X[:, z, i].sum(dim = -1) - EXPECTED)
 
     return score
 
 
-def do_move(X: np.array, actions: np.array):
+def do_move(X: torch.tensor, actions: torch.tensor):
     for bid, (z, i, j) in zip(range(len(X)), actions):
-        i_buck_inds = np.arange(G)[X[bid, z, i, :] == 1.0]
-        j_buck_inds = np.arange(G)[X[bid, z, :, j] == 1.0]
+        i_buck_inds = torch.arange(G, device = utils.DEVICE)[X[bid, z, i, :] == 1.0]
+        j_buck_inds = torch.arange(G, device = utils.DEVICE)[X[bid, z, :, j] == 1.0]
 
         X[bid, z, i, i_buck_inds] = 0.0; X[bid, z, j, j_buck_inds] = 0.0
         X[bid, z, j, i_buck_inds] = 1.0; X[bid, z, i, j_buck_inds] = 1.0
@@ -66,33 +66,33 @@ def rollout_episode(pnet, X: torch.tensor):
     for t in range(MAX_EPISODE_LEN):
         policy_proba_dist = pnet(X)
         
-        state_scores.append(evaluate_state(X.detach().numpy()))
+        state_scores.append(evaluate_state(X.detach()))
 
         for bid in range(len(X)):
-            if state_scores[-1][bid] > max_state_score:
-                max_state_score = state_scores[-1][bid]
-                best_X = X[bid].detach().clone()
+            if state_scores[-1][bid].item() > max_state_score:
+                max_state_score = state_scores[-1][bid].item()
+                best_X = X[bid].detach().cpu().clone()
 
         # sample urmatoarea actiune: schimb in grupul g pozitia grupurilor i si j.
-        inds = policy_proba_dist.multinomial(num_samples = 1).flatten().numpy()
+        inds = policy_proba_dist.multinomial(num_samples = 1).flatten()
         arr_z, arr_i, arr_j = inds // G**2, (inds % G**2) // G, inds % G
     
-        log_probas.append(policy_proba_dist[np.arange(len(X)), inds])
+        log_probas.append(policy_proba_dist[torch.arange(len(X), device = utils.DEVICE), inds])
 
-        X_next = do_move(X.detach().clone().numpy(), actions = np.vstack([arr_z, arr_i, arr_j]).T)
-        X = torch.from_numpy(X_next)
+        X_next = do_move(X.detach().clone(), actions = torch.vstack([arr_z, arr_i, arr_j]).T)
+        X = X_next
 
     # adaug si state_scores pentru ultima actiune.
-    state_scores.append(evaluate_state(X.detach().numpy()))
+    state_scores.append(evaluate_state(X.detach()))
 
     gains = [state_scores[t+1] - state_scores[t] for t in range(MAX_EPISODE_LEN)]
     for t in range(len(gains) - 2, -1, -1):
         gains[t] += gains[t+1]
 
-    gains = np.vstack(gains).T # (BS, EPISODE_LEN)
-    gains = (gains - gains.mean(axis = 1).reshape(-1, 1)) / (gains.std(axis = 1).reshape(-1, 1) + 1e-10)
+    gains = torch.vstack(gains).T # (BS, EPISODE_LEN)
+    gains = (gains - gains.mean(dim = 1).view(-1, 1)) / (gains.std(dim = 1).view(-1, 1) + 1e-10)
 
-    log_probas = torch.tensor(gains) * torch.log(torch.vstack(log_probas).T + 1e-10) # (BS, EPISODE_LEN).
+    log_probas = gains * torch.log(torch.vstack(log_probas).T + 1e-10) # (BS, EPISODE_LEN).
 
     return log_probas, max_state_score, best_X
 
@@ -136,7 +136,7 @@ def main():
 
         utils.print_debug_ht(dbg_time_ht)
 
-    print(f"best_X = {utils.get_state_from_X(best_X)}")
+    print(f"best_X = {utils.get_state_from_X(best_X.numpy())}")
 
 
 if __name__ == "__main__":
