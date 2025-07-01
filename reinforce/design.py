@@ -35,27 +35,27 @@ class PolicyNetB(torch.nn.Module):
         G = utils.G
         self.input_len = G * (G-1) // 2 + G * (G-1)
 
-        self.forbidden_mask = torch.zeros((G, G, G), dtype = torch.bool, device = utils.DEVICE)
+        self.forbidden_mask = np.zeros((G, G, G), dtype = np.bool_)
         for z in range(G):
             self.forbidden_mask[z, z, :] = True
             self.forbidden_mask[z, :, z] = True
             self.forbidden_mask[:, z, z] = True
-        self.forbidden_mask = self.forbidden_mask.flatten()
+        self.forbidden_mask = torch.from_numpy(self.forbidden_mask.flatten())
 
         self.layers = torch.nn.Sequential(
-            torch.nn.Linear(self.input_len, G, device = utils.DEVICE),
+            torch.nn.Linear(self.input_len, G),
             torch.nn.ReLU(),
-            torch.nn.Linear(G, self.input_len, device = utils.DEVICE),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(0.5),
-            torch.nn.Linear(self.input_len, G, device = utils.DEVICE),
+            torch.nn.Linear(G, self.input_len),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.5),
-            torch.nn.Linear(G, G ** 3, device = utils.DEVICE)
+            torch.nn.Linear(self.input_len, G),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.5),
+            torch.nn.Linear(G, G ** 3)
         )
 
     def cast_input(self, X: torch.tensor):
-        cast_X = torch.zeros(len(X), self.input_len, device = utils.DEVICE)
+        cast_X = np.zeros((len(X), self.input_len), dtype = np.float32)
 
         ind = 0
         for i in range(utils.G):
@@ -73,7 +73,7 @@ class PolicyNetB(torch.nn.Module):
         # cast_X = np.exp(- (cast_X - utils.EXPECTED) ** 2 / (2 * utils.TEMP ** 2))
         cast_X -= utils.EXPECTED
 
-        return cast_X
+        return torch.from_numpy(cast_X)
 
     def forward(self, X: torch.tensor):
         return F.softmax(
