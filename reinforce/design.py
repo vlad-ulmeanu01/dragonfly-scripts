@@ -1,6 +1,8 @@
 import torch.nn.functional as F
 import numpy as np
+import itertools
 import torch
+import copy
 
 import utils
 
@@ -33,7 +35,6 @@ class PolicyNetB(torch.nn.Module):
         super(PolicyNetB, self).__init__()
 
         G = utils.G
-        self.input_len = G * (G-1) // 2 + G * (G-1)
 
         self.forbidden_mask = np.zeros((G, G, G), dtype = np.bool_)
         for z in range(G):
@@ -43,37 +44,39 @@ class PolicyNetB(torch.nn.Module):
         self.forbidden_mask = torch.from_numpy(self.forbidden_mask.flatten())
 
         self.layers = torch.nn.Sequential(
-            torch.nn.Linear(self.input_len, G),
+            torch.nn.Linear(G ** 3, G),
             torch.nn.ReLU(),
-            torch.nn.Linear(G, self.input_len),
+            torch.nn.Linear(G, G ** 3),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.5),
-            torch.nn.Linear(self.input_len, G),
+            torch.nn.Linear(G ** 3, G),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.5),
             torch.nn.Linear(G, G ** 3)
         )
 
     def cast_input(self, X: torch.tensor):
-        cast_X = np.zeros((len(X), self.input_len), dtype = np.float32)
+        G = utils.G
+        cast_X = np.zeros((len(X), G, G, G), dtype = np.float32)
+        X_np = X.detach().numpy()
 
-        ind = 0
-        for i in range(utils.G):
-            for j in range(i+1, utils.G):
-                cast_X[:, ind] = X[:, :, i, j].sum(dim = -1)
-                ind += 1
+        X_np_og = copy.deepcopy(X_np)
+        og_score = utils.evaluate_state(X_np)
 
-        for z in range(utils.G):
-            for i in range(utils.G):
-                if i != z:
-                    cast_X[:, ind] = X[:, z, i].sum(dim = -1)
-                    ind += 1
+        for z, i, j in itertools.product(range(G), range(G), range(G)):
+            if z != i and z != j and i != j:
+                # pun cast_X[bs, z, i, j] == cu recompensa pe care am primi-o daca facem (z, i, j).
 
-        # normalizare:
-        # cast_X = np.exp(- (cast_X - utils.EXPECTED) ** 2 / (2 * utils.TEMP ** 2))
-        cast_X -= utils.EXPECTED
+                X_np = utils.do_move(X_np, np.array([(z, i, j) for _ in range(len(X))]))
 
-        return torch.from_numpy(cast_X)
+                score = utils.evaluate_state(X_np)
+                cast_X[:, z, i, j] = score - og_score
+
+                del X_np
+                X_np = copy.deepcopy(X_np_og)
+
+        return torch.from_numpy(cast_X.reshape(len(X), -1))
+
 
     def forward(self, X: torch.tensor):
         return F.softmax(
