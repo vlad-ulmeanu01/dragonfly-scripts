@@ -18,31 +18,6 @@ np.random.seed(SEED)
 random.seed(SEED)
 
 
-@numba.jit(nopython = True)
-def compute_expert_actions(X: np.array, mask_expert_choices: np.array):
-    expert_inds = np.zeros(len(X), dtype = np.int32) + (G + 2) # pot sa existe (pe langa starile unde nu vrem expert) stari care sunt maxim local. G + 2 = (0, 1, 2).
-
-    for bid in range(len(X)):
-        if mask_expert_choices[bid]:
-            worst_diff, worst_ij = X[bid, :, 1, 2].sum() - EXPECTED, (1, 2)
-            for i in range(G):
-                for j in range(i+1, G):
-                    diff = X[bid, :, i, j].sum() - EXPECTED
-                    if abs(diff) > abs(worst_diff):
-                        worst_diff, worst_ij = diff, (i, j)
-
-            i, j = worst_ij
-            if worst_diff < 0:
-                z = np.random.choice(np.array([z for z in range(G) if X[bid, z, i, j] == 0]))
-                expert_inds[bid] = z * G**2 + i * G + j
-            elif worst_diff > 0:
-                z = np.random.choice(np.array([z for z in range(G) if X[bid, z, i, j] == 1]))
-                flip_i_with = np.random.choice(np.array([j for j in range(G) if X[bid, z, i, j] == 0 and j != i]))
-                expert_inds[bid] = z * G**2 + i * G + flip_i_with
-
-    return expert_inds
-
-
 # proba_expert: 
 def rollout_episode(pnet, X: torch.tensor, proba_expert: float):
     log_probas, state_scores = [], []
@@ -75,14 +50,15 @@ def rollout_episode(pnet, X: torch.tensor, proba_expert: float):
             # policy_proba_dist.multinomial(num_samples = 1).flatten().numpy()
         # )
         inds = policy_proba_dist.multinomial(num_samples = 1).flatten().numpy()
-        arr_z, arr_i, arr_j = inds // G**2, (inds % G**2) // G, inds % G
-    
+        arr_i, arr_j = pnet.ind_pair_map[inds].T
+        arr_z = utils.greedy_sample_rows(X.detach().numpy(), arr_i, arr_j)
+
         log_probas.append(policy_proba_dist[np.arange(len(X)), inds])
 
         X_next = utils.do_move(X.detach().clone().numpy(), actions = np.vstack([arr_z, arr_i, arr_j]).T)
         X = torch.from_numpy(X_next)
 
-    # adaug si state_scores pentru ultima actiune.
+    # adaug si state_scores pentru ultima stare.
     state_scores.append(utils.evaluate_state(X.detach().numpy()))
 
     gains = [state_scores[t+1] - state_scores[t] for t in range(MAX_EPISODE_LEN)]
@@ -114,7 +90,7 @@ def main():
     dbg_time_ht = {"rollout": 0.0, "backward": 0.0}
 
     pnet = design.PolicyNetB()
-    optimizer = torch.optim.Adam(lr = 1e-2, params = pnet.parameters())
+    optimizer = torch.optim.Adam(lr = 1e-3, params = pnet.parameters())
     expert_sched = utils.DecayScheduler(start = 0.7, end = 0.01, decay = 100)
 
     best_episode_score, best_X = -inf, None
@@ -134,7 +110,8 @@ def main():
             best_episode_score = ep_max_state_score
             best_X = ep_best_X
         
-        print(f"{cnt_episode = }, {best_episode_score = }, {ep_max_state_score = }", flush = True)
+        print(f"{cnt_episode = }, {best_episode_score = }, {ep_max_state_score = }", flush = True)        
+        print(f"# expected batch episodes to reach current best: {round(2 / (1 - utils.proba_most_std_away((best_episode_score - utils.E_MEAN_SCORE) / utils.E_STD_SCORE)) / BATCH_SIZE, 3)}", flush = True)
 
         t_start = time.time()
 

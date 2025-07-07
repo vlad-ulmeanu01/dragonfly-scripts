@@ -35,51 +35,38 @@ class PolicyNetB(torch.nn.Module):
         super(PolicyNetB, self).__init__()
 
         G = utils.G
-
-        self.forbidden_mask = np.zeros((G, G, G), dtype = np.bool_)
-        for z in range(G):
-            self.forbidden_mask[z, z, :] = True
-            self.forbidden_mask[z, :, z] = True
-            self.forbidden_mask[:, z, z] = True
-        self.forbidden_mask = torch.from_numpy(self.forbidden_mask.flatten())
+        self.input_len = G * (G-1) // 2
+        
+        self.ind_pair_map, ind = np.zeros((self.input_len, 2), dtype = np.int32), 0
+        for i in range(G):
+            for j in range(i+1, G):
+                self.ind_pair_map[ind] = (i, j)
+                ind += 1
 
         self.layers = torch.nn.Sequential(
-            torch.nn.Linear(G ** 3, G),
+            torch.nn.Linear(self.input_len, G ** 3),
             torch.nn.ReLU(),
-            torch.nn.Linear(G, G ** 3),
-            torch.nn.ReLU(),
-            torch.nn.Dropout(0.5),
-            torch.nn.Linear(G ** 3, G),
+            torch.nn.Linear(G ** 3, self.input_len),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.5),
-            torch.nn.Linear(G, G ** 3)
+            torch.nn.Linear(self.input_len, G ** 3),
+            torch.nn.ReLU(),
+            torch.nn.Dropout(0.5),
+            torch.nn.Linear(G ** 3, self.input_len)
         )
 
     def cast_input(self, X: torch.tensor):
-        G = utils.G
-        cast_X = np.zeros((len(X), G, G, G), dtype = np.float32)
-        X_np = X.detach().numpy()
+        cast_X = np.zeros((len(X), self.input_len), dtype = np.float32)
 
-        X_np_og = copy.deepcopy(X_np)
-        og_score = utils.evaluate_state(X_np)
+        ind = 0
+        for i in range(utils.G):
+            for j in range(i+1, utils.G):
+                cast_X[:, ind] = X[:, :, i, j].sum(dim = -1)
+                ind += 1
 
-        for z, i, j in itertools.product(range(G), range(G), range(G)):
-            if z != i and z != j and i != j:
-                # pun cast_X[bs, z, i, j] == cu recompensa pe care am primi-o daca facem (z, i, j).
+        cast_X -= utils.EXPECTED
 
-                X_np = utils.do_move(X_np, np.array([(z, i, j) for _ in range(len(X))]))
-
-                score = utils.evaluate_state(X_np)
-                cast_X[:, z, i, j] = score - og_score
-
-                del X_np
-                X_np = copy.deepcopy(X_np_og)
-
-        return torch.from_numpy(cast_X.reshape(len(X), -1))
-
+        return torch.from_numpy(cast_X)
 
     def forward(self, X: torch.tensor):
-        return F.softmax(
-            torch.where(self.forbidden_mask, -utils.inf, self.layers(self.cast_input(X))),
-            dim = -1
-        )
+        return F.softmax(self.layers(self.cast_input(X)), dim = -1)
