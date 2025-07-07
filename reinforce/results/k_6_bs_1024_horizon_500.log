@@ -1,0 +1,300 @@
+avg probas: max = 0.027, min = 0.018, mean = 0.022, std = 0.002
+# positive rs = 0.269, # negative rs = 0.261, # nop rs = 0.47
+cnt_episode = 1, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 427253.368
+rollout: 13.761, backward: 7.848
+avg probas: max = 0.028, min = 0.018, mean = 0.022, std = 0.002
+# positive rs = 0.27, # negative rs = 0.262, # nop rs = 0.467
+cnt_episode = 2, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 27.738, backward: 12.702
+avg probas: max = 0.03, min = 0.017, mean = 0.022, std = 0.003
+# positive rs = 0.271, # negative rs = 0.263, # nop rs = 0.466
+cnt_episode = 3, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 40.686, backward: 16.154
+avg probas: max = 0.032, min = 0.016, mean = 0.022, std = 0.003
+# positive rs = 0.272, # negative rs = 0.263, # nop rs = 0.465
+cnt_episode = 4, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 55.123, backward: 17.823
+avg probas: max = 0.033, min = 0.015, mean = 0.022, std = 0.004
+# positive rs = 0.274, # negative rs = 0.264, # nop rs = 0.462
+cnt_episode = 5, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 68.273, backward: 19.3
+avg probas: max = 0.035, min = 0.015, mean = 0.022, std = 0.005
+# positive rs = 0.275, # negative rs = 0.265, # nop rs = 0.459
+cnt_episode = 6, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 82.277, backward: 20.453
+avg probas: max = 0.036, min = 0.014, mean = 0.022, std = 0.005
+# positive rs = 0.275, # negative rs = 0.265, # nop rs = 0.46
+cnt_episode = 7, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 95.755, backward: 22.507
+avg probas: max = 0.038, min = 0.013, mean = 0.022, std = 0.006
+# positive rs = 0.276, # negative rs = 0.266, # nop rs = 0.458
+cnt_episode = 8, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 108.809, backward: 24.031
+avg probas: max = 0.041, min = 0.012, mean = 0.022, std = 0.007
+# positive rs = 0.277, # negative rs = 0.267, # nop rs = 0.456
+cnt_episode = 9, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 120.697, backward: 25.232
+avg probas: max = 0.045, min = 0.011, mean = 0.022, std = 0.007
+# positive rs = 0.278, # negative rs = 0.268, # nop rs = 0.454
+cnt_episode = 10, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 132.697, backward: 26.278
+avg probas: max = 0.048, min = 0.011, mean = 0.022, std = 0.008
+# positive rs = 0.28, # negative rs = 0.268, # nop rs = 0.452
+cnt_episode = 11, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 145.684, backward: 28.757
+avg probas: max = 0.052, min = 0.01, mean = 0.022, std = 0.009
+# positive rs = 0.28, # negative rs = 0.27, # nop rs = 0.45
+cnt_episode = 12, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 158.334, backward: 31.005
+avg probas: max = 0.055, min = 0.009, mean = 0.022, std = 0.01
+# positive rs = 0.283, # negative rs = 0.271, # nop rs = 0.446
+cnt_episode = 13, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 170.904, backward: 32.456
+avg probas: max = 0.059, min = 0.008, mean = 0.022, std = 0.011
+# positive rs = 0.285, # negative rs = 0.273, # nop rs = 0.442
+cnt_episode = 14, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 183.549, backward: 33.447
+avg probas: max = 0.062, min = 0.008, mean = 0.022, std = 0.012
+# positive rs = 0.286, # negative rs = 0.273, # nop rs = 0.44
+cnt_episode = 15, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 195.728, backward: 35.269
+avg probas: max = 0.064, min = 0.007, mean = 0.022, std = 0.013
+# positive rs = 0.289, # negative rs = 0.275, # nop rs = 0.437
+cnt_episode = 16, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 207.759, backward: 36.431
+avg probas: max = 0.066, min = 0.007, mean = 0.022, std = 0.013
+# positive rs = 0.29, # negative rs = 0.275, # nop rs = 0.435
+cnt_episode = 17, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 220.265, backward: 38.155
+avg probas: max = 0.069, min = 0.006, mean = 0.022, std = 0.014
+# positive rs = 0.291, # negative rs = 0.276, # nop rs = 0.433
+cnt_episode = 18, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 232.654, backward: 39.969
+avg probas: max = 0.072, min = 0.006, mean = 0.022, std = 0.015
+# positive rs = 0.294, # negative rs = 0.278, # nop rs = 0.428
+cnt_episode = 19, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 244.368, backward: 40.971
+avg probas: max = 0.077, min = 0.006, mean = 0.022, std = 0.016
+# positive rs = 0.296, # negative rs = 0.28, # nop rs = 0.424
+cnt_episode = 20, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 256.053, backward: 42.113
+avg probas: max = 0.083, min = 0.005, mean = 0.022, std = 0.017
+# positive rs = 0.299, # negative rs = 0.282, # nop rs = 0.419
+cnt_episode = 21, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 267.577, backward: 43.271
+avg probas: max = 0.091, min = 0.005, mean = 0.022, std = 0.018
+# positive rs = 0.301, # negative rs = 0.284, # nop rs = 0.415
+cnt_episode = 22, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 279.126, backward: 44.268
+avg probas: max = 0.1, min = 0.004, mean = 0.022, std = 0.02
+# positive rs = 0.304, # negative rs = 0.285, # nop rs = 0.411
+cnt_episode = 23, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 290.99, backward: 45.309
+avg probas: max = 0.112, min = 0.004, mean = 0.022, std = 0.021
+# positive rs = 0.307, # negative rs = 0.288, # nop rs = 0.404
+cnt_episode = 24, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 302.538, backward: 46.362
+avg probas: max = 0.126, min = 0.003, mean = 0.022, std = 0.023
+# positive rs = 0.311, # negative rs = 0.291, # nop rs = 0.399
+cnt_episode = 25, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 314.613, backward: 47.648
+avg probas: max = 0.141, min = 0.003, mean = 0.022, std = 0.026
+# positive rs = 0.313, # negative rs = 0.293, # nop rs = 0.394
+cnt_episode = 26, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-12)
+# expected batch episodes to reach current best: 427253.368
+rollout: 326.782, backward: 49.078
+avg probas: max = 0.161, min = 0.003, mean = 0.022, std = 0.029
+# positive rs = 0.317, # negative rs = 0.295, # nop rs = 0.388
+cnt_episode = 27, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 338.933, backward: 50.571
+avg probas: max = 0.19, min = 0.002, mean = 0.022, std = 0.033
+# positive rs = 0.321, # negative rs = 0.299, # nop rs = 0.38
+cnt_episode = 28, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 427253.368
+rollout: 351.125, backward: 51.782
+avg probas: max = 0.235, min = 0.002, mean = 0.022, std = 0.039
+# positive rs = 0.325, # negative rs = 0.302, # nop rs = 0.372
+cnt_episode = 29, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 362.97, backward: 52.784
+avg probas: max = 0.266, min = 0.002, mean = 0.022, std = 0.044
+# positive rs = 0.328, # negative rs = 0.305, # nop rs = 0.366
+cnt_episode = 30, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 375.257, backward: 54.01
+avg probas: max = 0.282, min = 0.001, mean = 0.022, std = 0.046
+# positive rs = 0.332, # negative rs = 0.308, # nop rs = 0.36
+cnt_episode = 31, best_episode_score = np.int32(-6), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 427253.368
+rollout: 387.823, backward: 54.961
+avg probas: max = 0.319, min = 0.001, mean = 0.022, std = 0.052
+# positive rs = 0.334, # negative rs = 0.311, # nop rs = 0.355
+cnt_episode = 32, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-4)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 399.576, backward: 56.295
+avg probas: max = 0.33, min = 0.001, mean = 0.022, std = 0.055
+# positive rs = 0.336, # negative rs = 0.313, # nop rs = 0.35
+cnt_episode = 33, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 412.911, backward: 57.502
+avg probas: max = 0.354, min = 0.001, mean = 0.022, std = 0.059
+# positive rs = 0.338, # negative rs = 0.317, # nop rs = 0.344
+cnt_episode = 34, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 426.408, backward: 58.536
+avg probas: max = 0.355, min = 0.001, mean = 0.022, std = 0.06
+# positive rs = 0.341, # negative rs = 0.319, # nop rs = 0.34
+cnt_episode = 35, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 439.93, backward: 60.859
+avg probas: max = 0.35, min = 0.001, mean = 0.022, std = 0.061
+# positive rs = 0.343, # negative rs = 0.322, # nop rs = 0.335
+cnt_episode = 36, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 453.619, backward: 62.34
+avg probas: max = 0.342, min = 0.0, mean = 0.022, std = 0.061
+# positive rs = 0.343, # negative rs = 0.323, # nop rs = 0.334
+cnt_episode = 37, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 468.159, backward: 63.799
+avg probas: max = 0.337, min = 0.0, mean = 0.022, std = 0.061
+# positive rs = 0.345, # negative rs = 0.326, # nop rs = 0.329
+cnt_episode = 38, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 482.451, backward: 65.126
+avg probas: max = 0.326, min = 0.0, mean = 0.022, std = 0.06
+# positive rs = 0.346, # negative rs = 0.327, # nop rs = 0.327
+cnt_episode = 39, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-10)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 496.861, backward: 66.409
+avg probas: max = 0.325, min = 0.0, mean = 0.022, std = 0.06
+# positive rs = 0.346, # negative rs = 0.329, # nop rs = 0.324
+cnt_episode = 40, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 509.644, backward: 67.878
+avg probas: max = 0.31, min = 0.0, mean = 0.022, std = 0.059
+# positive rs = 0.348, # negative rs = 0.33, # nop rs = 0.323
+cnt_episode = 41, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 521.621, backward: 68.879
+avg probas: max = 0.295, min = 0.0, mean = 0.022, std = 0.057
+# positive rs = 0.348, # negative rs = 0.332, # nop rs = 0.32
+cnt_episode = 42, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 533.174, backward: 69.997
+avg probas: max = 0.288, min = 0.0, mean = 0.022, std = 0.057
+# positive rs = 0.349, # negative rs = 0.333, # nop rs = 0.318
+cnt_episode = 43, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 544.873, backward: 71.15
+avg probas: max = 0.271, min = 0.0, mean = 0.022, std = 0.055
+# positive rs = 0.349, # negative rs = 0.335, # nop rs = 0.316
+cnt_episode = 44, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-4)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 556.639, backward: 72.106
+avg probas: max = 0.283, min = 0.0, mean = 0.022, std = 0.057
+# positive rs = 0.348, # negative rs = 0.336, # nop rs = 0.316
+cnt_episode = 45, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 568.324, backward: 73.039
+avg probas: max = 0.292, min = 0.0, mean = 0.022, std = 0.059
+# positive rs = 0.348, # negative rs = 0.337, # nop rs = 0.316
+cnt_episode = 46, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 579.971, backward: 74.169
+avg probas: max = 0.304, min = 0.0, mean = 0.022, std = 0.06
+# positive rs = 0.347, # negative rs = 0.337, # nop rs = 0.315
+cnt_episode = 47, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 591.501, backward: 75.275
+avg probas: max = 0.32, min = 0.0, mean = 0.022, std = 0.062
+# positive rs = 0.348, # negative rs = 0.338, # nop rs = 0.314
+cnt_episode = 48, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 602.96, backward: 76.648
+avg probas: max = 0.328, min = 0.0, mean = 0.022, std = 0.064
+# positive rs = 0.347, # negative rs = 0.339, # nop rs = 0.314
+cnt_episode = 49, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 614.506, backward: 77.86
+avg probas: max = 0.336, min = 0.0, mean = 0.022, std = 0.065
+# positive rs = 0.347, # negative rs = 0.34, # nop rs = 0.313
+cnt_episode = 50, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 625.909, backward: 79.314
+avg probas: max = 0.332, min = 0.0, mean = 0.022, std = 0.065
+# positive rs = 0.347, # negative rs = 0.34, # nop rs = 0.313
+cnt_episode = 51, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 637.441, backward: 81.177
+avg probas: max = 0.333, min = 0.0, mean = 0.022, std = 0.065
+# positive rs = 0.347, # negative rs = 0.341, # nop rs = 0.312
+cnt_episode = 52, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 649.381, backward: 82.49
+avg probas: max = 0.336, min = 0.0, mean = 0.022, std = 0.066
+# positive rs = 0.345, # negative rs = 0.34, # nop rs = 0.315
+cnt_episode = 53, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-8)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 660.941, backward: 83.699
+avg probas: max = 0.347, min = 0.0, mean = 0.022, std = 0.067
+# positive rs = 0.346, # negative rs = 0.34, # nop rs = 0.314
+cnt_episode = 54, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 672.409, backward: 84.656
+avg probas: max = 0.351, min = 0.0, mean = 0.022, std = 0.067
+# positive rs = 0.346, # negative rs = 0.341, # nop rs = 0.313
+cnt_episode = 55, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 683.854, backward: 85.648
+avg probas: max = 0.377, min = 0.0, mean = 0.022, std = 0.07
+# positive rs = 0.346, # negative rs = 0.342, # nop rs = 0.313
+cnt_episode = 56, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 695.837, backward: 86.791
+avg probas: max = 0.4, min = 0.0, mean = 0.022, std = 0.073
+# positive rs = 0.345, # negative rs = 0.341, # nop rs = 0.313
+cnt_episode = 57, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-4)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 707.537, backward: 90.8
+avg probas: max = 0.439, min = 0.0, mean = 0.022, std = 0.077
+# positive rs = 0.346, # negative rs = 0.341, # nop rs = 0.313
+cnt_episode = 58, best_episode_score = np.int32(-4), ep_max_state_score = np.int32(-6)
+# expected batch episodes to reach current best: 3614144.081
+rollout: 719.423, backward: 91.659
+avg probas: max = 0.468, min = 0.0, mean = 0.022, std = 0.081
+# positive rs = 0.345, # negative rs = 0.341, # nop rs = 0.314
+cnt_episode = 59, best_episode_score = np.int32(0), ep_max_state_score = np.int32(0)
+# expected batch episodes to reach current best: 366580246.81
+rollout: 731.35, backward: 92.594
+best_X = [[[2, 7, 10], [3, 5, 6], [4, 8, 9]], [[1, 5, 8], [3, 4, 6], [7, 9, 10]], [[1, 5, 7], [2, 8, 9], [4, 6, 10]], [[1, 6, 9], [2, 5, 7], [3, 8, 10]], [[1, 8, 10], [2, 6, 9], [3, 4, 7]], [[1, 2, 4], [3, 7, 8], [5, 9, 10]], [[1, 4, 10], [2, 6, 8], [3, 5, 9]], [[1, 2, 3], [4, 7, 9], [5, 6, 10]], [[1, 6, 7], [2, 3, 10], [4, 5, 8]], [[1, 3, 9], [2, 4, 5], [6, 7, 8]]]
+
+real	13m55.093s
+user	403m30.308s
+sys	31m50.380s
