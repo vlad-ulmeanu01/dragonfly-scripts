@@ -14,7 +14,7 @@ inf = (1 << 30)
 
 MAX_EPISODE_LEN = 100
 NUM_EPISODES = 10 ** 4
-BATCH_SIZE = 30
+BATCH_SIZE = 1024
 TEMP = 1.0
 
 
@@ -56,7 +56,7 @@ def evaluate_state(X: np.array):
 @numba.jit(nopython = True)
 def do_move(X: np.array, actions: np.array):
     for bid, (z, i, j) in zip(range(len(X)), actions):
-        if X[bid, z, i, j] == 0:
+        if z != i and z != j and X[bid, z, i, j] == 0:
             i_buck_inds = np.arange(G)[X[bid, z, i, :] == 1.0]
             j_buck_inds = np.arange(G)[X[bid, z, :, j] == 1.0]
 
@@ -76,8 +76,7 @@ def greedy_sample_rows(X: np.array, arr_i: np.array, arr_j: np.array):
 
     for z in range(G):
         X = do_move(X, np.array([(z, i, j) for i, j in zip(arr_i, arr_j)]))
-        # scores.append(np.where(np.array([z == i or z == j for i, j in zip(arr_i, arr_j)]), -inf, evaluate_state(X)))
-        scores.append(np.where(np.array([z == i or z == j for i, j in zip(arr_i, arr_j)]), -inf, evaluate_state(X)))
+        scores.append(np.where(np.array([z == i or z == j or X[bid, z, i, j] == 1.0 for bid, i, j in zip(range(len(X)), arr_i, arr_j)]), -inf, evaluate_state(X)))
 
         del X
         X = copy.deepcopy(og_X)
