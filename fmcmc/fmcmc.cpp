@@ -1,9 +1,9 @@
 #include "fmcmc.h"
 #include "utils.h"
 
-void Fmcmc::add_edge(int from, int to, int cap, bool has_con) {
-    neighs[from].emplace_back(from, to, cap, has_con);
-    neighs[to].emplace_back(to, from, 0, false);
+void Fmcmc::add_edge(int from, int to, int cap, bool has_con, int pherom_init) {
+    neighs[from].emplace_back(from, to, cap, has_con, pherom_init);
+    neighs[to].emplace_back(to, from, 0, false, pherom_init);
 }
 
 ///alege urmatorul nod intr-o plimbare a unui agent.
@@ -15,8 +15,8 @@ int Fmcmc::choice(int nod, std::vector<bool>& viz) {
     for (const Edge& e: neighs[nod]) {
         if (!viz[e.to] && e.flow < e.cap) {
             double scor;
-            if constexpr (PHEROM_EXP == 1) scor = e.pherom;
-            else scor = pow(e.pherom, PHEROM_EXP);
+            if (pherom_exp == 1) scor = e.pherom;
+            else scor = pow(e.pherom, pherom_exp);
 
             cand_scores_ids.emplace_back(scor, i);
         }

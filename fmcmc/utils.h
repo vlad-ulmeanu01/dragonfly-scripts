@@ -12,18 +12,31 @@
 
 constexpr bool DEBUG = true;
 
-constexpr double PHEROM_EXP = 1.0, HEUR_EXP = 1.0;
+constexpr double HEUR_EXP = 1.0;
 
 const int inf = (1 << 30);
 
 const std::array<double, 4> con_costs = {0, log(2), log(3), log(4)};
 
-constexpr int K = 4, HALF_K = K / 2, CNT_GROUPS = 1 + HALF_K * HALF_K, GROUP_SIZE = HALF_K * HALF_K + 2 * HALF_K, DFLY_SIZE = CNT_GROUPS * GROUP_SIZE;
+constexpr int K = 6, HALF_K = K / 2, CNT_GROUPS = 1 + HALF_K * HALF_K, GROUP_SIZE = HALF_K * HALF_K + 2 * HALF_K, DFLY_SIZE = CNT_GROUPS * GROUP_SIZE;
 constexpr int FMCMC_SIZE = 1 + CNT_GROUPS * ((CNT_GROUPS-1) * CNT_GROUPS + 2) / 2 + CNT_GROUPS * (CNT_GROUPS - 1) / 2 + 1;
 constexpr int MAX_FLOW = CNT_GROUPS * 3 * HALF_K * HALF_K * (HALF_K - 1) / 2;
 constexpr double MIN_COST = CNT_GROUPS * HALF_K * HALF_K * (HALF_K - 1) / 2 * con_costs[3];
 
-constexpr double PHEROM_INIT = 1.0, PHEROM_DECAY = 0.1, PHEROM_Q = 10.0, CNT_EDGES_PATH_START_END = 4, P_BEST_1N = 0.47287; /// 0.05 ** (1 / 4).
-constexpr int BATCH_SIZE = 1000, CNT_EPOCHS = 100;
+constexpr double CNT_EDGES_PATH_START_END = 4, P_BEST_1N = 0.47287; /// 0.05 ** (1 / 4).
+// constexpr double PHEROM_INIT = 1.0, PHEROM_DECAY = 0.1, PHEROM_Q = 10.0;
+// constexpr int BATCH_SIZE = 1000, CNT_EPOCHS = 100;
 
 int get_msb(int x);
+
+struct Logger {
+    std::ofstream fout;
+    std::map<std::string, std::vector<double>> ht;
+
+    Logger(std::string name): fout(name) {}
+
+    void store(std::string var_name, double x);
+
+    ~Logger();
+};
+#define STORE(logger, x) logger.store(std::string(#x), x)
