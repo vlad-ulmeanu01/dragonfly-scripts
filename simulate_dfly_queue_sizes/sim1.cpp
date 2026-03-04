@@ -2,11 +2,11 @@
 #include "traffic_patterns.h"
 #include "balls_bins.h"
 
-void step_propagate_packets(std::array<Node, DFLY_SIZE>& dfly, BallsBins* bb, int& cnt_delivered_packets) {
+void step_propagate_packets(std::array<Node, DFLY_SIZE>& dfly, BallsBins *bb, int& cnt_delivered_packets) {
     std::array<std::vector<Packet>, DFLY_SIZE> inbound_packets = {};
     for (int ind = 0; ind < DFLY_SIZE; ind++) {
         for (NeighInfo& ni: dfly[ind].neighs) {
-            if (!ni.out_qu.empty()) {
+            for (int _ = 0; !ni.out_qu.empty() && _ < WIRE_TRANS_PER_STEP; _++) {
                 inbound_packets[ni.id].push_back(ni.out_qu.front());
                 ni.out_qu.pop();
             }
@@ -119,7 +119,7 @@ void end_step(std::array<Node, DFLY_SIZE>& dfly) {
 int main(int argc, char **argv) {
     if (argc != 5) {
         std::cerr << "Usage: 1) <global topology configuration (random, configs/k_4/config_k_4_score_0.txt)>\n";
-        std::cerr << "       2) <traffic pattern> (group_incast, host_incast, all_to_all)\n";
+        std::cerr << "       2) <traffic pattern> (group_incast, host_incast, all_to_all_ring)\n";
         std::cerr << "       3) <balls bins strategy> (greedy1, greedy2seq, greedy2par)\n";
         std::cerr << "       4) <cnt steps> (any integer >= 1)\n";
         std::cerr << "ex ./sim1 random group_incast greedy1 100\n";
@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
     std::unique_ptr<TrafficPattern> tp;
     if (traffic_pattern == "group_incast") tp = std::make_unique<GroupIncast>(dfly, 0);
     else if (traffic_pattern == "host_incast") tp = std::make_unique<HostIncast>(dfly, 0);
-    else if (traffic_pattern == "all_to_all") tp = std::make_unique<AllToAll>(dfly);
+    else if (traffic_pattern == "all_to_all_ring") tp = std::make_unique<AllToAllRing>(dfly);
     else assert(false);
 
     std::unique_ptr<BallsBins> bb;

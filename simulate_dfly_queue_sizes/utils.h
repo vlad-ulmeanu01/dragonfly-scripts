@@ -14,6 +14,11 @@ constexpr bool DEBUG = false;
 
 constexpr int K = 8, HALF_K = K / 2, CNT_GROUPS = 1 + HALF_K * HALF_K, GROUP_SIZE = HALF_K * HALF_K + 2 * HALF_K, DFLY_SIZE = CNT_GROUPS * GROUP_SIZE;
 
+/// daca un host poate produce 1 pachet/step, atunci pentru un incast pot fi generate (G-1)(K/2)**2 = (K/2)**4 pachete ce trebuie receptionate prin (K/2)**2 host-uri.
+/// deci pentru o impartire perfecta a traficului WIRE_TRANS_PER_STEP ar trebui sa fie de ajuns.
+constexpr int PACKS_GEN_PER_STEP = 1, WIRE_TRANS_PER_STEP = HALF_K * HALF_K;
+
+
 struct Packet {
     int from, to;
     ///TODO: pentru REPS ar trebui culoare?

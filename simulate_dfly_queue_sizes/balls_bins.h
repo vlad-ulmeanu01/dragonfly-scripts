@@ -33,6 +33,14 @@ struct Greedy2seq: BallsBins {
 struct Greedy2par: BallsBins {
     Greedy2par(std::array<Node, DFLY_SIZE>& dfly): BallsBins(dfly) {}
 
+    struct Info {
+        std::vector<int> freq;
+        int dist, cnt;
+        
+        Info(int dist): freq(dist), dist(dist), cnt(0) {}
+        Info(): dist(0), cnt(0) {}
+    };
+
     void make_picks(
         std::vector<std::tuple<Packet, std::vector<NeighInfo>::iterator, std::vector<NeighInfo>::iterator>>& need_random
     );

@@ -7,8 +7,9 @@ struct TrafficPattern {
     std::array<Node, DFLY_SIZE>& dfly;
     std::random_device rd;
     std::mt19937 mt;
+    bool finished_send;
 
-    TrafficPattern(std::array<Node, DFLY_SIZE>& dfly): dfly(dfly), mt(DEBUG? 0: rd()) {}
+    TrafficPattern(std::array<Node, DFLY_SIZE>& dfly): dfly(dfly), mt(DEBUG? 0: rd()), finished_send(false) {}
 
     virtual void step() {}
 };
@@ -31,10 +32,10 @@ struct HostIncast: TrafficPattern {
     void step();
 };
 
-struct AllToAll: TrafficPattern {
-    std::uniform_int_distribution<int> dist;
+struct AllToAllRing: TrafficPattern {
+    int step_count, instep_count;
 
-    AllToAll(std::array<Node, DFLY_SIZE>& dfly): TrafficPattern(dfly), dist(0, DFLY_SIZE - 1) {}
+    AllToAllRing(std::array<Node, DFLY_SIZE>& dfly): TrafficPattern(dfly), step_count(0), instep_count(0) {}
 
     void step();
 };
