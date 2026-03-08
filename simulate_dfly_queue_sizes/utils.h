@@ -1,6 +1,17 @@
 #pragma once
 
-#include <bits/stdc++.h>
+#include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <utility>
+#include <random>
+#include <vector>
+#include <memory>
+#include <queue>
+#include <map>
+
+#include <cassert>
+
 #define aaa system("read -r -p \"Press enter to continue...\" key");
 #define dbg(x) std::cerr << (#x) << ": " << (x) << ", ";
 #define dbgln(x) std::cerr << (#x) << ": " << (x) << '\n';
@@ -12,12 +23,6 @@
 
 constexpr bool DEBUG = false;
 
-constexpr int K = 8, HALF_K = K / 2, CNT_GROUPS = 1 + HALF_K * HALF_K, GROUP_SIZE = HALF_K * HALF_K + 2 * HALF_K, DFLY_SIZE = CNT_GROUPS * GROUP_SIZE;
-
-/// daca un host poate produce 1 pachet/step, atunci pentru un incast pot fi generate (G-1)(K/2)**2 = (K/2)**4 pachete ce trebuie receptionate prin (K/2)**2 host-uri.
-/// deci pentru o impartire perfecta a traficului WIRE_TRANS_PER_STEP ar trebui sa fie de ajuns.
-constexpr int PACKS_GEN_PER_STEP = 1, WIRE_TRANS_PER_STEP = HALF_K * HALF_K;
-
 
 struct Packet {
     int from, to;
@@ -25,6 +30,7 @@ struct Packet {
 
     Packet(int from, int to): from(from), to(to) {}
 };
+
 
 struct NeighInfo {
     int id;
@@ -35,23 +41,28 @@ struct NeighInfo {
     NeighInfo(): id(-1) {}
 };
 
-///host sau switch.
-struct Node {
-    std::vector<NeighInfo> neighs;
 
-    Node() {
-        neighs.reserve(K);
-    }
+struct DflyPlusMaxHosts {
+    int K; ///switch radix.
+    int PACKS_GEN_PER_STEP, WIRE_TRANS_PER_STEP;
+    
+    std::string cfg_type; ///cfg_type in ["random", (config file name)]
+
+    /// daca un host poate produce 1 pachet/step, atunci pentru un incast pot fi generate (G-1)(K/2)**2 = (K/2)**4 pachete ce trebuie receptionate prin (K/2)**2 host-uri.
+    /// deci pentru o impartire perfecta a traficului WIRE_TRANS_PER_STEP ar trebui sa fie de ajuns.
+
+    int HALF_K, CNT_GROUPS, GROUP_SIZE, DFLY_SIZE;
+
+    ///host sau switch.
+    std::vector<std::vector<NeighInfo>> topo; ///topo[DFLY_SIZE][K]: NeighInfo.
+    std::vector<std::vector<int>> spine_cfg;
+
+    DflyPlusMaxHosts(int K, int PACKS_GEN_PER_STEP, int WIRE_TRANS_PER_STEP, std::string cfg_type);
+
+    bool is_node_host(int id);
+    bool is_switch_leaf(int id);
+    int get_score();
+
+    void dbg_topo();
+    std::vector<std::vector<int>> dbg_get_spine_cfg();
 };
-
-void dbg_dfly(std::array<Node, DFLY_SIZE>& dfly);
-
-bool is_node_host(int id);
-
-bool is_switch_leaf(int id);
-
-void generate_dfly(std::array<Node, DFLY_SIZE>& dfly, std::string type);
-
-std::array<std::array<int, CNT_GROUPS - 1>, CNT_GROUPS> dfly_get_spine_cfg(std::array<Node, DFLY_SIZE>& dfly);
-
-int dfly_state_score(std::array<std::array<int, CNT_GROUPS - 1>, CNT_GROUPS> spine_cfg);
