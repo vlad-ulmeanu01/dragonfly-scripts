@@ -1,6 +1,22 @@
 #include "utils.h"
 
 
+Stats::Stats(double mean, double std): mean(mean), std(std) {}
+
+Stats::Stats(const std::vector<int>& v) {
+    mean = std::accumulate(v.begin(), v.end(), 0.0) / v.size();
+
+    std = 0.0;
+    for (int i = 0; i < (int)v.size(); i++) std += (v[i] - mean) * (v[i] - mean);
+    std = sqrt(std / ((int)v.size() - 1));
+}
+
+std::ostream& operator << (std::ostream& out, const Stats& s) {
+    out << std::fixed << std::setprecision(3) << s.mean << ' ' << s.std;
+    return out;
+}
+
+
 DflyPlusMaxHosts::DflyPlusMaxHosts(int K, int PACKS_GEN_PER_STEP, int WIRE_TRANS_PER_STEP, std::string cfg_type):
     K(K), PACKS_GEN_PER_STEP(PACKS_GEN_PER_STEP), WIRE_TRANS_PER_STEP(WIRE_TRANS_PER_STEP), cfg_type(cfg_type),
     HALF_K(K / 2), CNT_GROUPS(1 + HALF_K * HALF_K), GROUP_SIZE(HALF_K * HALF_K + 2 * HALF_K), DFLY_SIZE(CNT_GROUPS * GROUP_SIZE),

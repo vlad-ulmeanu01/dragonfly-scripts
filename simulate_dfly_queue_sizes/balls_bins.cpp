@@ -1,8 +1,12 @@
 #include "balls_bins.h"
 
-void BallsBins::make_picks(
-    std::vector<std::tuple<Packet, std::vector<NeighInfo>::iterator, std::vector<NeighInfo>::iterator>>& need_random
-) {}
+
+
+BallsBins::BallsBins(DflyPlusMaxHosts& dfly): dfly(dfly), mt(DEBUG? 0: rd()) {}
+
+
+
+Greedy1::Greedy1(DflyPlusMaxHosts& dfly): BallsBins(dfly) {}
 
 void Greedy1::make_picks(
     std::vector<std::tuple<Packet, std::vector<NeighInfo>::iterator, std::vector<NeighInfo>::iterator>>& need_random
@@ -13,6 +17,10 @@ void Greedy1::make_picks(
         it->out_qu.push(packet);
     }
 }
+
+
+
+Greedy2seq::Greedy2seq(DflyPlusMaxHosts& dfly): BallsBins(dfly) {}
 
 void Greedy2seq::make_picks(
     std::vector<std::tuple<Packet, std::vector<NeighInfo>::iterator, std::vector<NeighInfo>::iterator>>& need_random
@@ -26,6 +34,10 @@ void Greedy2seq::make_picks(
         it->out_qu.push(packet);
     }
 }
+
+
+
+Greedy2par::Greedy2par(DflyPlusMaxHosts& dfly): BallsBins(dfly) {}
 
 void Greedy2par::make_picks(
     std::vector<std::tuple<Packet, std::vector<NeighInfo>::iterator, std::vector<NeighInfo>::iterator>>& need_random
@@ -59,12 +71,17 @@ void Greedy2par::make_picks(
             if (offsets[i].first >= 0) { ///nerezolvat pana acum.
                 auto p = std::make_pair(begin, end);
 
-                int qsz_fi = (begin + offsets[i].first)->out_qu.size(), qsz_se = (begin + offsets[i].second)->out_qu.size();
+                int qsz_fi = ht[p].freq_chosen[offsets[i].first], qsz_se = ht[p].freq_chosen[offsets[i].second];
                 int thresh = (ht[p].cnt + ht[p].dist - 1) / ht[p].dist;
 
                 if (std::min(qsz_fi, qsz_se) <= thresh) {
-                    if ((std::max(qsz_fi, qsz_se) <= thresh && qsz_fi <= qsz_se) || qsz_fi <= thresh) its[i] = begin + offsets[i].first;
-                    else its[i] = begin + offsets[i].second;
+                    if ((std::max(qsz_fi, qsz_se) <= thresh && qsz_fi <= qsz_se) || qsz_fi <= thresh) {
+                        its[i] = begin + offsets[i].first;
+                        ht[p].freq_chosen_delta[offsets[i].first]++;
+                    } else {
+                        its[i] = begin + offsets[i].second;
+                        ht[p].freq_chosen_delta[offsets[i].second]++;
+                    }
 
                     offsets[i].first = -1;
                     solved_packs++;
@@ -74,7 +91,12 @@ void Greedy2par::make_picks(
             i++;
         }
 
-        for (auto& x: ht) std::fill(x.second.freq.begin(), x.second.freq.end(), 0);
+        for (auto& x: ht) {
+            for (int j = 0; j < x.second.dist; j++) x.second.freq_chosen[j] += x.second.freq_chosen_delta[j];
+            std::fill(x.second.freq.begin(), x.second.freq.end(), 0);
+            std::fill(x.second.freq_chosen_delta.begin(), x.second.freq_chosen_delta.end(), 0);
+            x.second.cnt = 0;
+        }
 
         if (solved_packs < (int)need_random.size()) {
             int i = 0;
@@ -85,6 +107,7 @@ void Greedy2par::make_picks(
                     offsets[i] = std::make_pair(std::uniform_int_distribution<int>(0, ht[p].dist-1)(mt), std::uniform_int_distribution<int>(0, ht[p].dist-1)(mt));
                     ht[p].freq[offsets[i].first]++;
                     ht[p].freq[offsets[i].second]++;
+                    ht[p].cnt++;
                 }
 
                 i++;

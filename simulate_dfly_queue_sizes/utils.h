@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 #include <utility>
+#include <numeric>
+#include <iomanip>
 #include <random>
 #include <vector>
 #include <memory>
@@ -24,6 +26,16 @@
 constexpr bool DEBUG = false;
 
 
+struct Stats {
+    double mean, std;
+
+    Stats(double mean, double std);
+    Stats(const std::vector<int>& v);
+};
+
+std::ostream& operator << (std::ostream& out, const Stats& s);
+
+
 struct Packet {
     int from, to;
     ///TODO: pentru REPS ar trebui culoare?
@@ -35,7 +47,7 @@ struct Packet {
 struct NeighInfo {
     int id;
     std::queue<Packet> out_qu;
-    std::vector<int> end_step_qu_sizes;
+    std::vector<int> end_step_out_qu_sizes;
 
     NeighInfo(int id): id(id) {}
     NeighInfo(): id(-1) {}

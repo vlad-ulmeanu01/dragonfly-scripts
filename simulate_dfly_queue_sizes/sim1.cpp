@@ -51,7 +51,7 @@ void step_propagate_packets(DflyPlusMaxHosts& dfly, BallsBins *bb, int& cnt_deli
                             }
                         );
                         
-                        assert(it != dfly.topo[ind].end());
+                        assert(it != dfly.topo[ind].end()); /// assert fail aici: de obicei inseamna ca propagi sau trimiti unui non-host.
                         it->out_qu.emplace(from, to);
                     }
                 }
@@ -112,7 +112,7 @@ void step_propagate_packets(DflyPlusMaxHosts& dfly, BallsBins *bb, int& cnt_deli
 void end_step(DflyPlusMaxHosts& dfly) {
     for (int i = 0; i < dfly.DFLY_SIZE; i++) {
         for (NeighInfo& ni: dfly.topo[i]) {
-            ni.end_step_qu_sizes.push_back(ni.out_qu.size());
+            ni.end_step_out_qu_sizes.push_back(ni.out_qu.size());
         }
     }
 }
@@ -122,11 +122,11 @@ int main(int argc, char **argv) {
         std::cerr << "Usage: 1) K\n";
         std::cerr << "       2) <packets generated per step per host> (PACKS_GEN_PER_STEP)\n";
         std::cerr << "       3) <how many packets can a connection transmit per step> (WIRE_TRANS_PER_STEP, should be <= HALF_K**2)\n";
-        std::cerr << "       4) <global topology configuration (random, configs/k_4/config_k_4_score_0.txt)>\n";
-        std::cerr << "       5) <traffic pattern> (group_incast, host_incast, all_to_all_ring)\n";
+        std::cerr << "       4) <global topology configuration (random, configs/k_4/config_1_score_0.txt)>\n";
+        std::cerr << "       5) <traffic pattern> (host_incast, permutation, host_incast_with_permutation, all_reduce_ring, all_reduce_butterfly)\n";
         std::cerr << "       6) <balls bins strategy> (greedy1, greedy2seq, greedy2par)\n";
-        std::cerr << "       7) <cnt steps> (any integer >= 1)\n";
-        std::cerr << "ex ./sim1 4 1 4 random group_incast greedy1 100\n";
+        std::cerr << "       7) <cnt steps> (any integer >= 1 for infinite TPs, e.g. incast/permutation, or -1 for finite TPs, e.g. all_reduce_*)\n";
+        std::cerr << "ex ./sim1 4 1 4 random host_incast greedy1 100\n";
         return 0;
     }
 
@@ -145,9 +145,11 @@ int main(int argc, char **argv) {
     // dbgln(score);
 
     std::unique_ptr<TrafficPattern> tp;
-    if (traffic_pattern == "group_incast") tp = std::make_unique<GroupIncast>(dfly, 0);
-    else if (traffic_pattern == "host_incast") tp = std::make_unique<HostIncast>(dfly, 0);
-    else if (traffic_pattern == "all_to_all_ring") tp = std::make_unique<AllToAllRing>(dfly);
+    if (traffic_pattern == "host_incast") tp = std::make_unique<HostIncast>(dfly, 0);
+    else if (traffic_pattern == "permutation") tp = std::make_unique<Permutation>(dfly);
+    else if (traffic_pattern == "host_incast_with_permutation") tp = std::make_unique<HostIncastWithPermutation>(dfly, dfly.DFLY_SIZE-1, dfly.GROUP_SIZE/2);
+    else if (traffic_pattern == "all_reduce_ring") tp = std::make_unique<AllReduceRing>(dfly);
+    else if (traffic_pattern == "all_reduce_butterfly") tp = std::make_unique<AllReduceButterfly>(dfly);
     else assert(false);
 
     std::unique_ptr<BallsBins> bb;
@@ -156,18 +158,21 @@ int main(int argc, char **argv) {
     else if (balls_bins == "greedy2par") bb = std::make_unique<Greedy2par>(dfly);
     else assert(false);
 
-    int cnt_delivered_packets = 0;
-    for (int step_id = 0; step_id < cnt_steps; step_id++) {
+    while ((cnt_steps > 0 && tp->step_id < cnt_steps) || (cnt_steps <= 0 && !(tp->finished_send && tp->cnt_sent_packets == tp->cnt_delivered_packets))) {
         tp->step();
-        step_propagate_packets(dfly, bb.get(), cnt_delivered_packets);
+        step_propagate_packets(dfly, bb.get(), tp->cnt_delivered_packets);
         end_step(dfly);
     }
 
-    for (int i = 0; i < dfly.DFLY_SIZE; i++) {
-        std::cout << i << ' ' << dfly.topo[i].size() << '\n';
-        for (const NeighInfo& ni: dfly.topo[i]) std::cout << ni.end_step_qu_sizes.back() << ' ';
-        std::cout << '\n';
-    }
+    ///pentru unele workload-uri (infinite) ma intereseaza (mean, std) la #pachete tinute per switch
+    ///la altele ma intereseaza flow completion time; aici step_id.
+    std::cout << tp->get_stats() << ' ' << tp->step_id << '\n';
+
+    // for (int i = 0; i < dfly.DFLY_SIZE; i++) {
+    //     std::cout << i << ' ' << dfly.topo[i].size() << '\n';
+    //     for (const NeighInfo& ni: dfly.topo[i]) std::cout << ni.end_step_out_qu_sizes.back() << ' ';
+    //     std::cout << '\n';
+    // }
 
     // std::cout << "cnt_delivered_packets = " << cnt_delivered_packets << '\n';
 
