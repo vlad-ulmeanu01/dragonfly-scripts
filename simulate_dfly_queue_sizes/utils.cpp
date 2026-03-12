@@ -17,6 +17,36 @@ std::ostream& operator << (std::ostream& out, const Stats& s) {
 }
 
 
+
+Packet::Packet(int from, int to): from(from), to(to) {}
+
+
+
+PacketQueue::PacketQueue(int GROUP_SIZE, int group_now): GROUP_SIZE(GROUP_SIZE), group_now(group_now), cnt_oog_packs(0) {}
+PacketQueue::PacketQueue(): cnt_oog_packs(0) {}
+
+void PacketQueue::push(const Packet& p) {
+    qu.push(p);
+    if (group_now != p.from / GROUP_SIZE && group_now != p.to / GROUP_SIZE) cnt_oog_packs++;
+}
+
+void PacketQueue::pop() {
+    if (group_now != qu.front().from / GROUP_SIZE && group_now != qu.front().to / GROUP_SIZE) cnt_oog_packs--;
+    assert(cnt_oog_packs >= 0);
+    qu.pop();
+}
+
+const Packet& PacketQueue::front() { return qu.front(); }
+size_t PacketQueue::size() { return qu.size(); }
+bool PacketQueue::empty() { return qu.empty(); }
+
+
+
+NeighInfo::NeighInfo(int GROUP_SIZE, int id): id(id), out_qu(GROUP_SIZE, id / GROUP_SIZE) {}
+NeighInfo::NeighInfo(): id(-1) {}  
+
+
+
 DflyPlusMaxHosts::DflyPlusMaxHosts(int K, int PACKS_GEN_PER_STEP, int WIRE_TRANS_PER_STEP, std::string cfg_type):
     K(K), PACKS_GEN_PER_STEP(PACKS_GEN_PER_STEP), WIRE_TRANS_PER_STEP(WIRE_TRANS_PER_STEP), cfg_type(cfg_type),
     HALF_K(K / 2), CNT_GROUPS(1 + HALF_K * HALF_K), GROUP_SIZE(HALF_K * HALF_K + 2 * HALF_K), DFLY_SIZE(CNT_GROUPS * GROUP_SIZE),
@@ -27,8 +57,8 @@ DflyPlusMaxHosts::DflyPlusMaxHosts(int K, int PACKS_GEN_PER_STEP, int WIRE_TRANS
     for (int group_id = 0, offset = 0; group_id < CNT_GROUPS; group_id++, offset += GROUP_SIZE) {
         ///[offset, offset + HALF_K**2) sunt terminale.
         for (int i = offset, leaf = offset + HALF_K * HALF_K, j = 0; i < offset + HALF_K * HALF_K; i++) {
-            topo[i].emplace_back(leaf);
-            topo[leaf].emplace_back(i);
+            topo[i].emplace_back(GROUP_SIZE, leaf);
+            topo[leaf].emplace_back(GROUP_SIZE, i);
             j++;
             if (j >= HALF_K) {
                 j = 0;
@@ -39,8 +69,8 @@ DflyPlusMaxHosts::DflyPlusMaxHosts(int K, int PACKS_GEN_PER_STEP, int WIRE_TRANS
         ///ultima jumatate de conexiuni leaves si prima jumatate de conn spine.
         for (int leaf = offset + HALF_K * HALF_K; leaf < offset + HALF_K * HALF_K + HALF_K; leaf++) {
             for (int j = 0; j < HALF_K; j++) {
-                topo[leaf].emplace_back(offset + HALF_K * HALF_K + HALF_K + j);
-                topo[offset + HALF_K * HALF_K + HALF_K + j].emplace_back(leaf);
+                topo[leaf].emplace_back(GROUP_SIZE, offset + HALF_K * HALF_K + HALF_K + j);
+                topo[offset + HALF_K * HALF_K + HALF_K + j].emplace_back(GROUP_SIZE, leaf);
             }
         }
     }
@@ -66,8 +96,9 @@ DflyPlusMaxHosts::DflyPlusMaxHosts(int K, int PACKS_GEN_PER_STEP, int WIRE_TRANS
             for (int i = 0; i < HALF_K; i++) {
                 int oth_group_id = spine_cfg[group_id][j++];
                 topo[spine].emplace_back(
+                    GROUP_SIZE,
                     oth_group_id * GROUP_SIZE + HALF_K * HALF_K + HALF_K +
-                    (std::find(spine_cfg[oth_group_id].begin(), spine_cfg[oth_group_id].end(), group_id) - spine_cfg[oth_group_id].begin()) / HALF_K
+                        (std::find(spine_cfg[oth_group_id].begin(), spine_cfg[oth_group_id].end(), group_id) - spine_cfg[oth_group_id].begin()) / HALF_K
                 );
             }
         }

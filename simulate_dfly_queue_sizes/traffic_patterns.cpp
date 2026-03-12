@@ -22,10 +22,8 @@ std::vector<int> TrafficPattern::get_cnt_packs_held_by_group(bool use_last_tstep
         for (int t = 0; t < step_id; t++) {
             int curr = 0;
             for (int i = 0; i < dfly.DFLY_SIZE; i++) {
-                if (dfly.topo[i].size() > 1) { ///<=> este switch, nu host.
-                    for (const NeighInfo& ni: dfly.topo[i]) {
-                        curr += ni.end_step_out_qu_sizes[tstep];
-                    }
+                for (const NeighInfo& ni: dfly.topo[i]) {
+                    curr += ni.end_step_out_qu_sizes[tstep];
                 }
             }
 
@@ -38,10 +36,8 @@ std::vector<int> TrafficPattern::get_cnt_packs_held_by_group(bool use_last_tstep
 
     std::vector<int> packs_held_by_group(dfly.CNT_GROUPS);
     for (int i = 0; i < dfly.DFLY_SIZE; i++) {
-        if (dfly.topo[i].size() > 1) {
-            for (const NeighInfo& ni: dfly.topo[i]) {
-                packs_held_by_group[i / dfly.GROUP_SIZE] += ni.end_step_out_qu_sizes[tstep];
-            }
+        for (const NeighInfo& ni: dfly.topo[i]) {
+            packs_held_by_group[i / dfly.GROUP_SIZE] += ni.end_step_out_qu_sizes[tstep];
         }
     }
 

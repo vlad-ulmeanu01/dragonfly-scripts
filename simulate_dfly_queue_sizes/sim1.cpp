@@ -112,7 +112,9 @@ void step_propagate_packets(DflyPlusMaxHosts& dfly, BallsBins *bb, int& cnt_deli
 void end_step(DflyPlusMaxHosts& dfly) {
     for (int i = 0; i < dfly.DFLY_SIZE; i++) {
         for (NeighInfo& ni: dfly.topo[i]) {
-            ni.end_step_out_qu_sizes.push_back(ni.out_qu.size());
+            // hai sa numaram surplusul, i.e. doar pachetele care nu sunt nici in grupul from, nici in to.
+            ni.end_step_out_qu_sizes.push_back(ni.out_qu.cnt_oog_packs);
+            // ni.end_step_out_qu_sizes.push_back(ni.out_qu.size());
         }
     }
 }
@@ -166,7 +168,8 @@ int main(int argc, char **argv) {
 
     ///pentru unele workload-uri (infinite) ma intereseaza (mean, std) la #pachete tinute per switch
     ///la altele ma intereseaza flow completion time; aici step_id.
-    std::cout << tp->get_stats() << ' ' << tp->step_id << '\n';
+
+    std::cout << tp->get_stats() << ' ' << tp->step_id << ' ' << tp->cnt_sent_packets << ' ' << tp->cnt_delivered_packets << '\n';
 
     // for (int i = 0; i < dfly.DFLY_SIZE; i++) {
     //     std::cout << i << ' ' << dfly.topo[i].size() << '\n';

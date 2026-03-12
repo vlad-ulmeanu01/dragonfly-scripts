@@ -40,17 +40,39 @@ struct Packet {
     int from, to;
     ///TODO: pentru REPS ar trebui culoare?
 
-    Packet(int from, int to): from(from), to(to) {}
+    Packet(int from, int to);
+};
+
+
+struct PacketQueue {
+    int GROUP_SIZE;
+    std::queue<Packet> qu;
+    int group_now; ///coada apartine de un sw. in ce grup e switch-ul?
+    int cnt_oog_packs; ///cate pachete out-of-group detin (i.e. pentru care group_now nu e nici from nici to).
+
+    PacketQueue(int GROUP_SIZE, int group_now);
+    PacketQueue();
+
+    void push(const Packet& p);
+    void pop();
+    const Packet& front();
+    size_t size();
+    bool empty();
+
+    template <typename... Args>
+    void emplace(Args&&... args) {
+        push(Packet(std::forward<Args>(args)...));
+    }
 };
 
 
 struct NeighInfo {
     int id;
-    std::queue<Packet> out_qu;
+    PacketQueue out_qu;
     std::vector<int> end_step_out_qu_sizes;
 
-    NeighInfo(int id): id(id) {}
-    NeighInfo(): id(-1) {}
+    NeighInfo(int GROUP_SIZE, int id);
+    NeighInfo();
 };
 
 
