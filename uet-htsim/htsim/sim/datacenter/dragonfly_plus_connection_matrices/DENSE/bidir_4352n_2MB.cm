@@ -1,0 +1,4 @@
+Nodes 4352
+Connections 2
+0->256 id 1 start 0 size 2000000
+256->0 id 2 start 0 size 2000000

@@ -1,0 +1,18 @@
+Nodes 4352
+Connections 16
+0->4096 id 1 start 0 size 2000000
+1->4097 id 2 start 0 size 2000000
+2->4098 id 3 start 0 size 2000000
+3->4099 id 4 start 0 size 2000000
+4->4100 id 5 start 0 size 2000000
+5->4101 id 6 start 0 size 2000000
+6->4102 id 7 start 0 size 2000000
+7->4103 id 8 start 0 size 2000000
+8->4104 id 9 start 0 size 2000000
+9->4105 id 10 start 0 size 2000000
+10->4106 id 11 start 0 size 2000000
+11->4107 id 12 start 0 size 2000000
+12->4108 id 13 start 0 size 2000000
+13->4109 id 14 start 0 size 2000000
+14->4110 id 15 start 0 size 2000000
+15->4111 id 16 start 0 size 2000000
