@@ -33,6 +33,8 @@ private:
     switch_type _type;
     Pipe* _pipe;
     DragonFlyPlusTopology* _dfp;
+    std::vector<std::vector<uint32_t>>& _topo_dfp_sparse_cfg;
+    // int get_spine_id_linking_groups_in_cfg(int group_from, int group_to); /// TODO.
     
     //CAREFUL: can't always have a single FIB for all up destinations when there are failures!
     vector<FibEntry*>* _uproutes;

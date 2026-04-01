@@ -75,6 +75,7 @@ public:
     uint32_t failed_links;
     queue_type qt;
 
+
     DragonFlyPlusTopology(uint32_t p, uint32_t l, uint32_t s, uint32_t h, linkspeed_bps linkspeed, mem_b queuesize, QueueLoggerFactory* logger_factory,EventList* ev,queue_type q,simtime_picosec latency,simtime_picosec switch_latency);
     DragonFlyPlusTopology(uint32_t radix, linkspeed_bps linkspeed, mem_b queuesize, QueueLoggerFactory* logger_factory,EventList* ev,queue_type q, simtime_picosec latency, simtime_picosec switch_latency, topology_type type = DFP_DENSE_T, const char *topo_dfp_sparse_file = NULL);
 
@@ -106,6 +107,7 @@ public:
     int get_oversubscription_ratio(uint32_t route_strategy);
     simtime_picosec get_diameter_latency() {return 5 * _hop_latency + 4 * _switch_latency;};
     simtime_picosec get_two_point_diameter_latency(int src, int dst);
+    std::vector<std::vector<uint32_t>>& get_sparse_cfg_reference() { return _topo_dfp_sparse_cfg; }
 
 private:
     int64_t find_switch(Queue* queue);
@@ -117,13 +119,12 @@ private:
     uint32_t _k, _p, _l, _s, _h;
     uint32_t _type;
     const char *_topo_dfp_sparse_file;
-    std::vector<std::vector<uint32_t>> _topo_dfp_sparse_cfg;
+    std::vector<std::vector<uint32_t>> _topo_dfp_sparse_cfg; /// TODO: poate faci un getter aici.
     uint32_t _no_of_nodes;
     uint32_t _no_of_groups,_no_of_switches, _no_of_leafs, _no_of_spines;
     simtime_picosec _hop_latency, _switch_latency;
     mem_b _queuesize;
     linkspeed_bps _linkspeed;
-
 };
 
 #endif

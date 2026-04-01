@@ -142,15 +142,11 @@ void DragonFlyPlusTopology::set_params() {
 
         std::ifstream fin(_topo_dfp_sparse_file);
 
-        std::cout << "debug _topo_dfp_sparse_cfg:\n";
         for (int i = 0; i < (int)_no_of_groups; i++) {
             for (int j = 0; j < (int)_no_of_groups - 1; j++) {
                 fin >> _topo_dfp_sparse_cfg[i][j];
-                std::cout << _topo_dfp_sparse_cfg[i][j] << ' ';
             }
-            std::cout << '\n';
         }
-        std::cout << "---\n" << std::flush;
     }
 }
 
@@ -337,7 +333,6 @@ void DragonFlyPlusTopology::init_network(){
 
                 if (x > i) {
                     jk_pairs.emplace_back((uint32_t)(_s * i + j / _h), (uint32_t)(_s * x + ind_x / _h));
-                    std::cout << "jk_pairs add: " << jk_pairs.back().first << ", " << jk_pairs.back().second << '\n';
                 }
             }
         }
@@ -363,7 +358,6 @@ void DragonFlyPlusTopology::init_network(){
                         target_group_id++;
                         uint32_t k  = target_group_id * _s + group_id / _h;
                         jk_pairs.emplace_back(j, k);
-                        std::cout << "jk_pairs add iulian: " << jk_pairs.back().first << ", " << jk_pairs.back().second << '\n';
                     }
                 }
             }

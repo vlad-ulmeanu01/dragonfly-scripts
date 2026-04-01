@@ -1,4 +1,6 @@
 // -*- c-basic-offset: 4; indent-tabs-mode: nil -*-
+#include <algorithm>
+
 #include "dragon_fly_plus_switch.h"
 #include "routetable.h"
 #include "dragon_fly_plus_topology.h"
@@ -6,7 +8,9 @@
 #include "queue_lossless.h"
 #include "queue_lossless_output.h"
 
-DragonFlyPlusSwitch::DragonFlyPlusSwitch(EventList& eventlist, string s, switch_type t, uint32_t id,simtime_picosec delay, DragonFlyPlusTopology* dfp): Switch(eventlist, s) {
+DragonFlyPlusSwitch::DragonFlyPlusSwitch(EventList& eventlist, string s, switch_type t, uint32_t id,simtime_picosec delay, DragonFlyPlusTopology* dfp):
+    Switch(eventlist, s), _topo_dfp_sparse_cfg(dfp->get_sparse_cfg_reference())
+{
     _id = id;
     _type = t;
     _pipe = new CallbackPipe(delay,eventlist, this);
@@ -16,6 +20,8 @@ DragonFlyPlusSwitch::DragonFlyPlusSwitch(EventList& eventlist, string s, switch_
     _hash_salt = random();
     _last_choice = eventlist.now();
     _fib = new RouteTable();
+
+    ///clasa apelata o data pentru fiecare switch din topologie.
 }
 
 int8_t DragonFlyPlusSwitch::compare_queuesize_dense(FibEntry* left, FibEntry* right){
@@ -385,12 +391,24 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                             _fib->addRoute(pkt.dst(), r, 1, UP);
                         }
                     } else {
-                        if (group_id < target_group) {
-                            src_spine = group_id * _dfp->getNSpinesGroup() + (target_group-1)/_dfp->getNGlobalLinks();
+                        ///NOTE schimbat de aici in jos:
+
+                        if (_topo_dfp_sparse_cfg.empty()) {
+                            if (group_id < target_group)
+                                src_spine = group_id * _dfp->getNSpinesGroup() + (target_group-1) / _dfp->getNGlobalLinks();
+                            else
+                                src_spine = group_id * _dfp->getNSpinesGroup() + target_group / _dfp->getNGlobalLinks();
+                        } else {
+                            ///ai nevoie doar de src_spine: da cu find in _topo_dfp_sparse_cfg[group_id] pentru target_group.
+                            
+                            ///jk_pairs: (_s * x + ind_x / _h);
+                            int ind = std::find(_topo_dfp_sparse_cfg[group_id].begin(), _topo_dfp_sparse_cfg[group_id].end(), target_group) - _topo_dfp_sparse_cfg[group_id].begin();
+
+                            src_spine = group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
                         }
-                        else {
-                            src_spine = group_id * _dfp->getNSpinesGroup() + target_group/_dfp->getNGlobalLinks();
-                        }
+
+                        ///NOTE schimbat pana aici.
+
                         Route *r = new Route();
                         r->push_back(_dfp->queues_leaf_spine[_id][src_spine]);
                         assert(((BaseQueue*)r->at(0))->getSwitch() == this);
@@ -404,24 +422,40 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                             if (group_id == next_group_id || target_group == next_group_id) continue;
 
                             uint32_t next_src_spine, next_spine_1, next_spine_2;
-                            if (group_id < next_group_id) {
-                                next_src_spine = group_id * _dfp->getNSpinesGroup() + (next_group_id-1)/_dfp->getNGlobalLinks();
-                                next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + group_id/_dfp->getNGlobalLinks();
-                            }
-                            else {
-                                next_src_spine = group_id * _dfp->getNSpinesGroup() + next_group_id/_dfp->getNGlobalLinks();
-                                next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + (group_id-1)/_dfp->getNGlobalLinks();
+
+                            ///NOTE schimbat de aici in jos:
+
+                            if (_topo_dfp_sparse_cfg.empty()) {
+                                if (group_id < next_group_id) {
+                                    next_src_spine = group_id * _dfp->getNSpinesGroup() + (next_group_id-1) / _dfp->getNGlobalLinks();
+                                    next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + group_id / _dfp->getNGlobalLinks();
+                                }
+                                else {
+                                    next_src_spine = group_id * _dfp->getNSpinesGroup() + next_group_id / _dfp->getNGlobalLinks();
+                                    next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + (group_id-1) / _dfp->getNGlobalLinks();
+                                }
+                            } else {
+                                int ind = std::find(_topo_dfp_sparse_cfg[group_id].begin(), _topo_dfp_sparse_cfg[group_id].end(), next_group_id) - _topo_dfp_sparse_cfg[group_id].begin();
+                                next_src_spine = group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
+
+                                ind = std::find(_topo_dfp_sparse_cfg[next_group_id].begin(), _topo_dfp_sparse_cfg[next_group_id].end(), group_id) - _topo_dfp_sparse_cfg[next_group_id].begin();
+                                next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
                             }
 
                             // This is a non minimal route from the spine switch with minimal path (we mark it on the spine not in leaf)
                             if (src_spine == next_src_spine) continue;
 
-                            if (next_group_id < target_group) {
-                                next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + (target_group-1)/_dfp->getNGlobalLinks();
+                            if (_topo_dfp_sparse_cfg.empty()) {
+                                if (next_group_id < target_group)
+                                    next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + (target_group-1) / _dfp->getNGlobalLinks();
+                                else
+                                    next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + target_group / _dfp->getNGlobalLinks();
+                            } else {
+                                int ind = std::find(_topo_dfp_sparse_cfg[next_group_id].begin(), _topo_dfp_sparse_cfg[next_group_id].end(), target_group) - _topo_dfp_sparse_cfg[next_group_id].begin();
+                                next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
                             }
-                            else {
-                                next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + target_group/_dfp->getNGlobalLinks();
-                            }
+
+                            ///NOTE schimbat pana aici.
 
                             Route *r = new Route();
                             r->push_back(_dfp->queues_leaf_spine[_id][next_src_spine]);
@@ -458,14 +492,24 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                     // Determine the desination router that will be used
                     // this assumes only L-G-L (minimal paths are used)
                     uint32_t src_spine, dst_spine;
-                    if (group_id < target_group){
-                        src_spine = group_id * _dfp->getNSpinesGroup() + (target_group-1)/_dfp->getNGlobalLinks();
-                        dst_spine = target_group * _dfp->getNSpinesGroup() + group_id/_dfp->getNGlobalLinks();
+
+                    ///NOTE schimbat de aici in jos:
+                    if (_topo_dfp_sparse_cfg.empty()) {
+                        if (group_id < target_group) {
+                            src_spine = group_id * _dfp->getNSpinesGroup() + (target_group-1)/_dfp->getNGlobalLinks();
+                            dst_spine = target_group * _dfp->getNSpinesGroup() + group_id/_dfp->getNGlobalLinks();
+                        } else {
+                            src_spine = group_id * _dfp->getNSpinesGroup() + target_group/_dfp->getNGlobalLinks();
+                            dst_spine = target_group * _dfp->getNSpinesGroup() + (group_id-1)/_dfp->getNGlobalLinks();
+                        }
+                    } else {
+                        int ind = std::find(_topo_dfp_sparse_cfg[group_id].begin(), _topo_dfp_sparse_cfg[group_id].end(), target_group) - _topo_dfp_sparse_cfg[group_id].begin();
+                        src_spine = group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
+
+                        ind = std::find(_topo_dfp_sparse_cfg[target_group].begin(), _topo_dfp_sparse_cfg[target_group].end(), group_id) - _topo_dfp_sparse_cfg[target_group].begin();
+                        dst_spine = target_group * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
                     }
-                    else {
-                        src_spine = group_id * _dfp->getNSpinesGroup() + target_group/_dfp->getNGlobalLinks();
-                        dst_spine = target_group * _dfp->getNSpinesGroup() + (group_id-1)/_dfp->getNGlobalLinks();
-                    }
+                    ///NOTE schimbat pana aici.
 
                     // cout << _id << " " << src_spine << endl;
 
@@ -497,23 +541,40 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                     for (uint32_t next_group_id = 0; next_group_id < _dfp->getNGroups(); next_group_id++) {
                         if (group_id == next_group_id || target_group == next_group_id) continue;
 
+                        ///NOTE schimbat de aici in jos:
+
                         uint32_t next_spine_1, next_spine_2;
-                        if (group_id < next_group_id) {
-                            src_spine = group_id * _dfp->getNSpinesGroup() + (next_group_id-1)/_dfp->getNGlobalLinks();
-                            next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + group_id/_dfp->getNGlobalLinks();
+
+                        if (_topo_dfp_sparse_cfg.empty()) {
+                            if (group_id < next_group_id) {
+                                src_spine = group_id * _dfp->getNSpinesGroup() + (next_group_id-1) / _dfp->getNGlobalLinks();
+                                next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + group_id / _dfp->getNGlobalLinks();
+                            }
+                            else {
+                                src_spine = group_id * _dfp->getNSpinesGroup() + next_group_id / _dfp->getNGlobalLinks();
+                                next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + (group_id-1) / _dfp->getNGlobalLinks();
+                            }
+                        } else {
+                            int ind = std::find(_topo_dfp_sparse_cfg[group_id].begin(), _topo_dfp_sparse_cfg[group_id].end(), next_group_id) - _topo_dfp_sparse_cfg[group_id].begin();
+                            src_spine = group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
+
+                            ind = std::find(_topo_dfp_sparse_cfg[next_group_id].begin(), _topo_dfp_sparse_cfg[next_group_id].end(), group_id) - _topo_dfp_sparse_cfg[next_group_id].begin();
+                            next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks();
                         }
-                        else {
-                            src_spine = group_id * _dfp->getNSpinesGroup() + next_group_id/_dfp->getNGlobalLinks();
-                            next_spine_1 = next_group_id * _dfp->getNSpinesGroup() + (group_id-1)/_dfp->getNGlobalLinks();
-                        }
+
                         if (_id != src_spine) continue;
 
-                        if (next_group_id < target_group) {
-                            next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + (target_group-1)/_dfp->getNGlobalLinks();
+                        if (_topo_dfp_sparse_cfg.empty()) {
+                            if (next_group_id < target_group)
+                                next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + (target_group-1) / _dfp->getNGlobalLinks();
+                            else
+                                next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + target_group / _dfp->getNGlobalLinks();
+                        } else {
+                            int ind = std::find(_topo_dfp_sparse_cfg[next_group_id].begin(), _topo_dfp_sparse_cfg[next_group_id].end(), target_group) - _topo_dfp_sparse_cfg[next_group_id].begin();
+                            next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + ind / _dfp->getNGlobalLinks(); ///(copy paste din NOTE 2).
                         }
-                        else {
-                            next_spine_2 = next_group_id * _dfp->getNSpinesGroup() + target_group/_dfp->getNGlobalLinks();
-                        }
+
+                        ///NOTE schimbat pana aici.
 
                         Route *r = new Route();
                         r->push_back(_dfp->queues_spine_spine[_id][next_spine_1]);
