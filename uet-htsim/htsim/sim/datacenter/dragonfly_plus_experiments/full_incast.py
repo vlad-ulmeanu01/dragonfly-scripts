@@ -7,8 +7,12 @@ import os
 import re
 
 
-ROOT = "/home/vlad/Documents/SublimeMerge/dragonfly-scripts/"
-TM_FILE = os.path.join(ROOT, "uet-htsim/htsim/sim/datacenter/dragonfly_plus_connection_matrices/SPARSE/experiment_incast_tmp.cm")
+INCAST_TYPE = "group" # "host"
+assert INCAST_TYPE in ["host", "group"], "unknown INCAST_TYPE"
+
+
+ROOT = "/export/home/acs/stud/v/vlad_adrian.ulmeanu/Probleme/dragonfly-scripts" # "/home/vlad/Documents/SublimeMerge/dragonfly-scripts"
+TM_FILE = os.path.join(ROOT, f"uet-htsim/htsim/sim/datacenter/dragonfly_plus_connection_matrices/SPARSE/experiment_{INCAST_TYPE}_incast_tmp.cm")
 OUTFILE = os.path.join(ROOT, "uet-htsim/htsim/sim/build/datacenter/test_out.txt")
 EXE = os.path.join(ROOT, "uet-htsim/htsim/sim/build/datacenter/htsim_uec")
 CFG_ROOT = os.path.join(ROOT, "simulate_dfly_queue_sizes/configs/")
@@ -62,17 +66,27 @@ ECN = (7, 26)
 H = K // 2
 CNT_NODES = (H**2 + 1) * H**2
 CNT_GROUPS = H**2 + 1
+GROUP_SIZE = H**2
 
 
 def generate_transport_matrix(incasted_host: int):
     with open(TM_FILE, 'w') as fout:
         fout.write(f"Nodes {CNT_NODES}\n")
-        fout.write(f"Connections {CNT_NODES - 1}\n")
+        fout.write(f"Connections {CNT_NODES - 1 if INCAST_TYPE == 'host' else CNT_NODES - GROUP_SIZE}\n")
+
         j = 1
-        for i in range(CNT_NODES):
-            if i != incasted_host:
-                fout.write(f"{i}->{incasted_host} id {j} start {0} size {FLOWSIZE}\n")
-                j += 1
+        if INCAST_TYPE == "host":
+            for i in range(CNT_NODES):
+                if i != incasted_host:
+                    fout.write(f"{i}->{incasted_host} id {j} start {0} size {FLOWSIZE}\n")
+                    j += 1
+        else: # group incast.
+            incasted_host -= incasted_host % GROUP_SIZE
+            for i in range(CNT_NODES):
+                if i // GROUP_SIZE != incasted_host // GROUP_SIZE:
+                    to = random.randrange(incasted_host, incasted_host + GROUP_SIZE)
+                    fout.write(f"{i}->{to} id {j} start {0} size {FLOWSIZE}\n")
+                    j += 1
 
 
 class SimResult:
@@ -85,7 +99,7 @@ def run_sim(topos: list, queue_size: int, ecn: tuple, end_time: int, cnt_paths: 
     srs = []
 
     t_start = time.time()
-    for incasted_host in range(0, CNT_NODES, H**2):
+    for incasted_host in range(0, CNT_NODES, GROUP_SIZE):
         generate_transport_matrix(incasted_host)
 
         for topo in topos:
@@ -122,13 +136,13 @@ def run_sim(topos: list, queue_size: int, ecn: tuple, end_time: int, cnt_paths: 
                 
                 srs.append(SimResult(fcts, rtx))
 
-            print(f"Finished {topo = }, group {incasted_host // H**2} / {CNT_GROUPS}. {round(time.time() - t_start, 3)} s passed.")
+            print(f"Finished {topo = }, group {incasted_host // H**2} / {CNT_GROUPS}. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
     return srs
 
 
 def main():
-    ht = {"K": K, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO, "queue_size": QUEUE_SIZE, "ecn": list(ECN)}
+    ht = {"INCAST_TYPE": INCAST_TYPE, "K": K, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO, "queue_size": QUEUE_SIZE, "ecn": list(ECN)}
 
     t_start = time.time()
     for topo_name in TOPOS:
@@ -137,7 +151,7 @@ def main():
         # ht[topo_name] = {"mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
         ht[topo_name] = {"mean_fct": np.array([sr.fcts[-1] for sr in srs]).mean(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
         
-        print(f"Finished {topo_name = }. {ht[topo_name] = }. {round(time.time() - t_start, 3)} s passed.")
+        print(f"Finished {topo_name = }. {ht[topo_name] = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
     with open(f"full_incast_{int(time.time())}.json", 'w') as fout:
         json.dump(ht, fout, indent = 4)
