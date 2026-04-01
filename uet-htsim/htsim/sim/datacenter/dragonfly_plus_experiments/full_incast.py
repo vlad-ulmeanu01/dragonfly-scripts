@@ -11,8 +11,7 @@ INCAST_TYPE = "group" # "host"
 assert INCAST_TYPE in ["host", "group"], "unknown INCAST_TYPE"
 
 
-ROOT = "/export/home/acs/stud/v/vlad_adrian.ulmeanu/Probleme/dragonfly-scripts" # "/home/vlad/Documents/SublimeMerge/dragonfly-scripts"
-TM_FILE = os.path.join(ROOT, f"uet-htsim/htsim/sim/datacenter/dragonfly_plus_connection_matrices/SPARSE/experiment_{INCAST_TYPE}_incast_tmp.cm")
+ROOT = "/home/vlad/Documents/SublimeMerge/dragonfly-scripts" # "/export/home/acs/stud/v/vlad_adrian.ulmeanu/Probleme/dragonfly-scripts"
 OUTFILE = os.path.join(ROOT, "uet-htsim/htsim/sim/build/datacenter/test_out.txt")
 EXE = os.path.join(ROOT, "uet-htsim/htsim/sim/build/datacenter/htsim_uec")
 CFG_ROOT = os.path.join(ROOT, "simulate_dfly_queue_sizes/configs/")
@@ -48,12 +47,8 @@ TOPOS = {
     "-264": [os.path.join(CFG_ROOT, f"k_{K}", f"config_{i}_score_-264.txt") for i in range(1, 6)]
 }
 
-# K = 8
-# TOPOS = {
-#     "-14": os.path.join(CFG_ROOT, f"k_{K}", "config_1_score_-14.txt"),
-#     "-258": os.path.join(CFG_ROOT, f"k_{K}", "config_4_score_-258.txt"),
-#     "iulian": None
-# }
+
+TM_FILE = os.path.join(ROOT, f"uet-htsim/htsim/sim/datacenter/dragonfly_plus_connection_matrices/SPARSE/experiment_{K}_{INCAST_TYPE}_incast_tmp.cm")
 
 
 FLOWSIZE = 2 * 10**6 # 2MB / host
@@ -61,12 +56,15 @@ CNT_RUNS_PER_TOPO = 5 # 30
 BDP_PKTS = 33
 
 QUEUE_SIZE = 3 * BDP_PKTS
-ECN = (7, 26)
+ECN = (int(BDP_PKTS * 0.2), int(BDP_PKTS * 0.8))
 
 H = K // 2
 CNT_NODES = (H**2 + 1) * H**2
 CNT_GROUPS = H**2 + 1
 GROUP_SIZE = H**2
+
+PKT_SPRAYING = "greedy2"
+assert PKT_SPRAYING in ["greedy1", "greedy2"], "unknown PKT_SPRAYING"
 
 
 def generate_transport_matrix(incasted_host: int):
@@ -119,6 +117,7 @@ def run_sim(topos: list, queue_size: int, ecn: tuple, end_time: int, cnt_paths: 
                 "-sender_cc_only" if do_sender_cc else "-receiver_cc_only",
                 "-load_balancing_algo oblivious",
                 "-strat ecmp_all",
+                "-ar_method queue" if PKT_SPRAYING == "greedy2" else '', # sper ca baga Greedy[2] asta.
                 f"> {OUTFILE}"
             ])
 
@@ -142,7 +141,7 @@ def run_sim(topos: list, queue_size: int, ecn: tuple, end_time: int, cnt_paths: 
 
 
 def main():
-    ht = {"INCAST_TYPE": INCAST_TYPE, "K": K, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO, "queue_size": QUEUE_SIZE, "ecn": list(ECN)}
+    ht = {"INCAST_TYPE": INCAST_TYPE, "PKT_SPRAYING": PKT_SPRAYING, "K": K, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO, "queue_size": QUEUE_SIZE, "ecn": list(ECN)}
 
     t_start = time.time()
     for topo_name in TOPOS:
