@@ -26,6 +26,9 @@ LosslessOutputQueue::LosslessOutputQueue(linkspeed_bps bitrate, mem_b maxsize,
     stringstream ss;
     ss << "queue lossless output(" << bitrate/1000000 << "Mb/s," << maxsize << "bytes)";
     _nodename = ss.str();
+
+    _ecn_maxthresh = 2 * maxsize;
+    _ecn_minthresh = 2 * maxsize;
 }
 
 
@@ -119,7 +122,7 @@ void LosslessOutputQueue::completeService(){
     _vq.pop_back();
 
     //mark on deque
-    if (_ecn_enabled && _queuesize > _K)
+    if (decide_ECN())
         pkt->set_flags(pkt->flags() | ECN_CE); 
 
     if (pkt->type()==HPCC){
@@ -174,4 +177,17 @@ void LosslessOutputQueue::completeService(){
             /* start packet transmission, schedule the next dequeue event */
             beginService();
     }
+}
+
+bool LosslessOutputQueue::decide_ECN() {
+    //ECN mark on deque
+    if (_queuesize > _ecn_maxthresh) {
+        return true;
+    } else if (_queuesize > _ecn_minthresh) {
+        uint64_t p = (0x7FFFFFFF * (_queuesize - _ecn_minthresh))/(_ecn_maxthresh - _ecn_minthresh);
+        if ((uint64_t)random() < p) {
+            return true;
+        }
+    }
+    return false;
 }

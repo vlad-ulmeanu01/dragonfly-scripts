@@ -19,6 +19,8 @@
 #include "uec_mp.h"
 #include "uec_pdcses.h"
 #include "compositequeue.h"
+#include "queue_lossless_input.h"
+#include "queue_lossless_output.h"
 #include "topology.h"
 #include "connection_matrix.h"
 #include "pciemodel.h"
@@ -111,6 +113,8 @@ int main(int argc, char **argv) {
     simtime_picosec target_Qdelay = 0;
 
     bool param_ecn_set = false;
+    bool set_rto = false;
+    double rto_time_us = 0.0;
     bool ecn = true;
     uint32_t ecn_low = 0;
     uint32_t ecn_high = 0;
@@ -158,6 +162,11 @@ int main(int argc, char **argv) {
                 topo_type = DFP_SPARSE_T;
                 topo_name = "DragonFlyPlus SPARSE";
             }
+            i++;
+        } else if (!strcmp(argv[i], "-rto")) {
+            rto_time_us = atof(argv[i+1]);
+            set_rto = true;
+            cout << "rto set to " << rto_time_us << "us" << endl;
             i++;
         } else if (!strcmp(argv[i], "-radix")) {
             radix = atoi(argv[i+1]);
@@ -277,11 +286,23 @@ int main(int argc, char **argv) {
             else if (!strcmp(argv[i+1], "aeolus_ecn")){
                 qt = AEOLUS_ECN;
             }
+            else if (!strcmp(argv[i+1], "lossless_input")) {
+                qt = LOSSLESS_INPUT;
+                LosslessInputQueue::_low_threshold = atoi(argv[i+2]);
+                LosslessInputQueue::_high_threshold = atoi(argv[i+3]);
+                i += 2;
+            }
+            else if (!strcmp(argv[i+1], "lossless_input_ecn")) {
+                qt = LOSSLESS_INPUT_ECN;
+                LosslessInputQueue::_low_threshold = atoi(argv[i+2]);
+                LosslessInputQueue::_high_threshold = atoi(argv[i+3]);
+                i += 2;
+            }
             else {
                 cout << "Unknown queue type " << argv[i+1] << endl;
                 exit_error(argv[0]);
             }
-            cout << "queue_type "<< qt << endl;
+            cout << "queue_type " << qt << endl;
             i++;
         } else if (!strcmp(argv[i],"-debug")) {
             UecSrc::_debug = true;
@@ -729,6 +750,10 @@ int main(int argc, char **argv) {
 
     //2 priority queues; 3 hops for incast
     UecSrc::_min_rto = timeFromUs(15 + queuesize * 6.0 * 8 * 1000000 / linkspeed);
+    if (set_rto) {
+        UecSrc::_min_rto = timeFromUs(rto_time_us);
+    }
+
     cout << "Setting min RTO to " << timeAsUs(UecSrc::_min_rto) << endl;
 
     if (ecn) {
@@ -773,7 +798,7 @@ int main(int argc, char **argv) {
             else if (topo_type == DFP_SPARSE_T && Switch::fn == &Switch::compare_queuesize)
                 Switch::fn = &DragonFlyPlusSwitch::compare_queuesize_sparse;
             topo[p] = make_unique<DragonFlyPlusTopology>(radix, linkspeed, queuesize, qlf, &eventlist, qt, hop_latency, switch_latency, topo_type, topo_dfp_sparse_file);
-            ///TODO aici se apeleaza constrctorul tau.
+            ///NOTE aici se apeleaza constrctorul tau.
 
             if (topo[p]->no_of_nodes() != no_of_nodes) {
                 cerr << "Mismatch between connection matrix (" << no_of_nodes << " nodes) and topology ("

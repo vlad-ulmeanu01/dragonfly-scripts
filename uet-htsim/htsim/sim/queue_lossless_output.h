@@ -28,6 +28,11 @@ public:
 
     enum queue_state {PAUSED,READY,PAUSE_RECEIVED};
 
+    void set_ecn_thresholds(mem_b min_thresh, mem_b max_thresh) {
+        _ecn_minthresh = min_thresh;
+        _ecn_maxthresh = max_thresh;
+    }
+
 private:
     list<VirtualQueue*> _vq;
 
@@ -35,9 +40,15 @@ private:
     int _sending;
     uint64_t _txbytes;
 
+    mem_b _ecn_minthresh; 
+    mem_b _ecn_maxthresh;
+
+    bool decide_ECN();
+
 public:
     static int _ecn_enabled;
     static int _K;
+    
 };
 
 #endif

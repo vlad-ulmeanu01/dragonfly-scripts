@@ -181,9 +181,17 @@ Queue* DragonFlyPlusTopology::alloc_queue(QueueLogger* queueLogger, linkspeed_bp
     else if (qt==LOSSLESS)
         return new LosslessQueue(speed, queuesize, *_eventlist, queueLogger, NULL);
     else if (qt==LOSSLESS_INPUT)
-        return new LosslessOutputQueue(speed, queuesize, *_eventlist, queueLogger);    
-    else if (qt==LOSSLESS_INPUT_ECN)
-        return new LosslessOutputQueue(speed, memFromPkt(10000), *_eventlist, queueLogger);
+        return new LosslessOutputQueue(speed, queuesize, *_eventlist, queueLogger);
+    else if (qt==LOSSLESS_INPUT_ECN) {
+        LosslessOutputQueue *q = new LosslessOutputQueue(speed, memFromPkt(10000), *_eventlist, queueLogger);
+        if (_enable_ecn) {
+            if (!tor || dir == UPLINK || _enable_ecn_on_tor_downlink) {
+                // don't use ECN on ToR downlinks unless configured so.
+                q->set_ecn_thresholds(_ecn_low, _ecn_high);
+            }
+        }
+        return q;
+    }
     else if (qt==COMPOSITE_ECN){
         if (tor) 
             return new CompositeQueue(speed, queuesize, *_eventlist, queueLogger, Switch::_trim_size, Switch::_disable_trim);
@@ -262,11 +270,11 @@ void DragonFlyPlusTopology::init_network(){
 
             leafs[j]->addPort(queues_leaf_host[j][k]);
 
-            if (qt==LOSSLESS){
+            if (qt == LOSSLESS) {
                 ((LosslessQueue*)queues_leaf_host[j][k])->setRemoteEndpoint(queues_host_leaf[k][j]);
-            }else if (qt==LOSSLESS_INPUT || qt == LOSSLESS_INPUT_ECN){
+            } else if (qt == LOSSLESS_INPUT || qt == LOSSLESS_INPUT_ECN) {
                 //no virtual queue needed at server
-                new LosslessInputQueue(*_eventlist,queues_host_leaf[k][j]);
+                new LosslessInputQueue(*_eventlist, queues_host_leaf[k][j], leafs[j], _hop_latency);
             }
           
             pipes_host_leaf[k][j] = new Pipe(_hop_latency, *_eventlist);
@@ -304,14 +312,14 @@ void DragonFlyPlusTopology::init_network(){
             leafs[j]->addPort(queues_leaf_spine[j][k]);
             spines[k]->addPort(queues_spine_leaf[k][j]);
 
-            if (qt==LOSSLESS){
+            if (qt == LOSSLESS) {
                 ((LosslessQueue*)queues_leaf_spine[j][k])->setRemoteEndpoint(queues_spine_leaf[k][j]);
                 ((LosslessQueue*)queues_spine_leaf[k][j])->setRemoteEndpoint(queues_leaf_spine[j][k]);
-            }else if (qt==LOSSLESS_INPUT || qt == LOSSLESS_INPUT_ECN){            
-                new LosslessInputQueue(*_eventlist, queues_leaf_spine[j][k]);
-                new LosslessInputQueue(*_eventlist, queues_spine_leaf[k][j]);
+            } else if (qt == LOSSLESS_INPUT || qt == LOSSLESS_INPUT_ECN){           
+                new LosslessInputQueue(*_eventlist, queues_leaf_spine[j][k], spines[k], _hop_latency);
+                new LosslessInputQueue(*_eventlist, queues_spine_leaf[k][j], leafs[j], _hop_latency);
             }
-          
+
             pipes_spine_leaf[k][j] = new Pipe(_hop_latency, *_eventlist);
             pipes_spine_leaf[k][j]->setName("Pipe-SPINE" + ntoa(k) + "->LEAF" + ntoa(j));
         }
@@ -390,14 +398,14 @@ void DragonFlyPlusTopology::init_network(){
         spines[j]->addPort(queues_spine_spine[j][k]);
         spines[k]->addPort(queues_spine_spine[k][j]);
 
-        if (qt == LOSSLESS){
+        if (qt == LOSSLESS) {
             ((LosslessQueue *)queues_spine_spine[j][k])->setRemoteEndpoint(queues_spine_spine[k][j]);
             ((LosslessQueue *)queues_spine_spine[k][j])->setRemoteEndpoint(queues_spine_spine[j][k]);
         } else if (qt == LOSSLESS_INPUT || qt == LOSSLESS_INPUT_ECN){            
-            new LosslessInputQueue(*_eventlist, queues_spine_spine[j][k]);
-            new LosslessInputQueue(*_eventlist, queues_spine_spine[k][j]);
+            new LosslessInputQueue(*_eventlist, queues_spine_spine[j][k], spines[k], _hop_latency);
+            new LosslessInputQueue(*_eventlist, queues_spine_spine[k][j], spines[j], _hop_latency);
         }
-    
+
         pipes_spine_spine[j][k] = new Pipe(_hop_latency, *_eventlist);
         pipes_spine_spine[j][k]->setName("Pipe-SPINE" + ntoa(j) + "-G->SPINE" + ntoa(k));
     }
