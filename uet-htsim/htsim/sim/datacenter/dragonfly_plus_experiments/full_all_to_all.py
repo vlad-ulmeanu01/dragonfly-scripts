@@ -51,7 +51,7 @@ def run_sim(topos: list, tm_file: str):
 def main():
     ht = {
         "EXP_TYPE": "full_all_to_all", "ALL_TO_ALL_TYPE": ALL_TO_ALL_TYPE, "K": K, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO, "TOPOLOGIES_PER_SCORE": du.TOPOLOGIES_PER_SCORE,
-        "SEEDS": du.SEEDS[:du.TOPOLOGIES_PER_SCORE], "FLOW_SIZE": du.FLOW_SIZE, "LINK_SPEED": du.LINK_SPEED, "END_TIME": du.END_TIME, "CNT_PATHS": du.CNT_PATHS,
+        "SEEDS": du.SEEDS[:CNT_RUNS_PER_TOPO], "FLOW_SIZE": du.FLOW_SIZE, "LINK_SPEED": du.LINK_SPEED, "END_TIME": du.END_TIME, "CNT_PATHS": du.CNT_PATHS,
         "DO_SENDER_CC": du.DO_SENDER_CC, "BDP_PKTS": du.BDP_PKTS, "QUEUE_SIZE": du.QUEUE_SIZE, "ECN": list(du.ECN), "PKT_SPRAYING": du.PKT_SPRAYING,
         "TOTAL_TIME": 0
     }
@@ -67,8 +67,12 @@ def main():
         
         print(f"Finished {topo_name = }. {ht[topo_name] = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
+    ht["TOTAL_TIME"] = round(time.time() - t_start, 3)
+
     with open(f"./jsons/full_all_to_all_{int(time.time())}.json", 'w') as fout:
         json.dump(ht, fout, indent = 4)
+
+    du.post_run_cleanup(cnt_runs_per_topo = CNT_RUNS_PER_TOPO)
 
 
 if __name__ == "__main__":
