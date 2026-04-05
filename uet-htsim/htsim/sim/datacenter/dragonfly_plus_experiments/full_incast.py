@@ -11,7 +11,7 @@ INCAST_TYPE = "group"
 # INCAST_TYPE = "host"
 assert INCAST_TYPE in ["host", "group"], "unknown INCAST_TYPE"
 
-K = 4
+K = 8
 
 H = K // 2
 CNT_NODES = (H**2 + 1) * H**2
@@ -43,25 +43,24 @@ def generate_transport_matrix(incasted_host: int):
 
 
 def run_sim(topos: list):
-    pool = mp.Pool(processes = 4)
+    pool = mp.Pool(processes = 16)
     srs = []
 
     t_start = time.time()
     for incasted_host in range(0, CNT_NODES, GROUP_SIZE):
         generate_transport_matrix(incasted_host)
 
-        for topo in topos:
-            cmds = [
-                du.get_htsim_cmdlist(
-                    seed = du.SEEDS[nt], tm_file = du.TM_FILE, end_time = du.END_TIME, cnt_paths = du.CNT_PATHS, link_speed = du.LINK_SPEED, k = K, queue_size = du.QUEUE_SIZE,
-                    ecn = du.ECN, topo = topo, do_sender_cc = du.DO_SENDER_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}.dat"
-                )
-                for nt in range(CNT_RUNS_PER_TOPO)
-            ]
+        cmds = [
+            du.get_htsim_cmdlist(
+                seed = du.SEEDS[nt], tm_file = du.TM_FILE, end_time = du.END_TIME, cnt_paths = du.CNT_PATHS, link_speed = du.LINK_SPEED, k = K, queue_size = du.QUEUE_SIZE,
+                ecn = du.ECN, topo = topo, do_sender_cc = du.DO_SENDER_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}_{tid}.dat"
+            )
+            for nt in range(CNT_RUNS_PER_TOPO) for tid, topo in enumerate(topos)
+        ]
 
-            srs.extend(pool.map(du.proc_run, cmds))
+        srs.extend(pool.map(du.proc_run, cmds))
 
-            print(f"Finished {topo = }, group {incasted_host // H**2} / {CNT_GROUPS}. {round(time.time() - t_start, 3)} s passed.", flush = True)
+        print(f"Finished group {incasted_host // H**2} / {CNT_GROUPS}. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
     return srs
 

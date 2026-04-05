@@ -7,7 +7,7 @@ import os
 import dfp_exp_utils as du
 
 
-K = 6
+K = 8
 
 H = K // 2
 CNT_NODES = (H**2 + 1) * H**2
@@ -84,11 +84,12 @@ def main():
                 t_start = time.time()
 
                 for topo_name in du.TOPOS[K]:
-                    srs = run_sim(topos = du.TOPOS[K][topo_name], bibd_file = os.path.join(root, file))
+                    if topo_name in ["-138", "-200", "-264"]: # TODO del.
+                        srs = run_sim(topos = du.TOPOS[K][topo_name], bibd_file = os.path.join(root, file))
 
-                    ht[topo_name] = {"mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
-                    
-                    print(f"Finished {topo_name = } with {cnt_used_groups = }. {ht[topo_name] = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
+                        ht[topo_name] = {"mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
+                        
+                        print(f"Finished {topo_name = } with {cnt_used_groups = }. {ht[topo_name] = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
                 ht["TOTAL_TIME"] = round(time.time() - t_start, 3)
 

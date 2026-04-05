@@ -14,36 +14,36 @@ ALL_TO_ALL_TYPE = "parallel"
 # ALL_TO_ALL_TYPE = "serial"
 assert ALL_TO_ALL_TYPE in ["parallel", "serial"], "unknown ALL_TO_ALL_TYPE"
 
-K = 4
+K = 8
 
 H = K // 2
 CNT_NODES = (H**2 + 1) * H**2
 CNT_GROUPS = H**2 + 1
 GROUP_SIZE = H**2
 
-CNT_RUNS_PER_TOPO = 5
+CNT_RUNS_PER_TOPO = 1
 CNT_TMS_PER_TYPE = {"serial": 5, "parallel": 1}
 
 TM_FOLDER = os.path.join(du.ROOT, f"uet-htsim/htsim/sim/datacenter/dragonfly_plus_connection_matrices/SPARSE/")
 
 
 def run_sim(topos: list, tm_file: str):
-    pool = mp.Pool(processes = 4)
+    pool = mp.Pool(processes = 16)
     srs = []
 
     t_start = time.time()
-    for topo in topos:
-        cmds = [
-            du.get_htsim_cmdlist(
-                seed = du.SEEDS[nt], tm_file = tm_file, end_time = du.END_TIME, cnt_paths = du.CNT_PATHS, link_speed = du.LINK_SPEED, k = K, queue_size = du.QUEUE_SIZE,
-                ecn = du.ECN, topo = topo, do_sender_cc = du.DO_SENDER_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}.dat"
-            )
-            for nt in range(CNT_RUNS_PER_TOPO[ALL_TO_ALL_TYPE])
-        ]
+    
+    cmds = [
+        du.get_htsim_cmdlist(
+            seed = du.SEEDS[nt], tm_file = tm_file, end_time = du.END_TIME, cnt_paths = du.CNT_PATHS, link_speed = du.LINK_SPEED, k = K, queue_size = du.QUEUE_SIZE,
+            ecn = du.ECN, topo = topo, do_sender_cc = du.DO_SENDER_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}_{tid}.dat"
+        )
+        for nt in range(CNT_RUNS_PER_TOPO) for tid, topo in enumerate(topos)
+    ]
 
-        srs.extend(pool.map(du.proc_run, cmds))
+    srs = pool.map(du.proc_run, cmds)
 
-        print(f"Finished {topo = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
+    print(f"Finished {topos[0] = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
     return srs
 
