@@ -4,6 +4,8 @@
 #include "network.h"
 #include "loggers.h"
 
+class UecSrcPort;
+
 #ifndef TOPOLOGY_TYPE
 #define TOPOLOGY_TYPE
 typedef enum {FAT_TREE_T = 0, DFP_DENSE_T = 1, DFP_SPARSE_T = 2} topology_type;
@@ -34,6 +36,8 @@ public:
 
     virtual Route* setup_uec_route(int host_nr) {abort();};
     virtual uint32_t HOST_TOR(uint32_t src) {abort();};
+
+    virtual void connectHostToHostQueue(uint32_t src, UecSrcPort *port_src) {abort();};
 
     virtual ~Topology() = default;
 

@@ -118,11 +118,14 @@ int main(int argc, char **argv) {
     bool ecn = true;
     uint32_t ecn_low = 0;
     uint32_t ecn_high = 0;
+    uint32_t pfc_xon = 0;
+    uint32_t pfc_xoff = 0;
     uint32_t queue_size_bdp_factor = 0;
     uint32_t topo_num_failed = 0;
 
     bool receiver_driven = false;
     bool sender_driven = true;
+    bool no_cc = false;
 
     RouteStrategy route_strategy = NOT_SET;
     
@@ -212,6 +215,13 @@ int main(int argc, char **argv) {
             sender_driven = true;
             receiver_driven = false;
             cout << "sender based CC enabled ONLY" << endl;
+        } else if (!strcmp(argv[i], "-no_cc")) {
+            sender_driven = false;
+            receiver_driven = false;
+            UecSrc::_sender_based_cc = false;
+            UecSrc::_no_cc = true;
+            no_cc = true;
+            cout << "using no congestion control; send at max cwnd pkts in flight" << endl;
         } else if (!strcmp(argv[i],"-qa_gate")) {
             qa_gate = atof(argv[i+1]);
             cout << "qa_gate 2^" << qa_gate << endl;
@@ -421,6 +431,11 @@ int main(int argc, char **argv) {
             ecn_low = atoi(argv[i+1]); 
             ecn_high = atoi(argv[i+2]);
             i+=2;
+        } else if (!strcmp(argv[i],"-pfc")) {
+            CompositeQueue::isLossless = true;
+            pfc_xon = atoi(argv[i+1]);
+            pfc_xoff = atoi(argv[i+2]);
+            i += 2;
         } else if (!strcmp(argv[i],"-disable_trim")) {
             disable_trim = true;
             cout << "Trimming disabled, dropping instead." << endl;
@@ -488,30 +503,51 @@ int main(int argc, char **argv) {
             if (!strcmp(argv[i+1],"pause")){
                 cout << "Adaptive routing based on pause state " << endl;
                 Switch::fn = &Switch::compare_pause;
+                if (topo_type == DFP_SPARSE_T) {
+                    Switch::fn = &DragonFlyPlusSwitch::compare_pause;
+                }
             }
             else if (!strcmp(argv[i+1],"queue")){
                 cout << "Adaptive routing based on queue size " << endl;
                 Switch::fn = &Switch::compare_queuesize;
+                if (topo_type == DFP_SPARSE_T) {
+                    Switch::fn = &DragonFlyPlusSwitch::compare_queuesize;
+                }
             }
             else if (!strcmp(argv[i+1],"bandwidth")){
                 cout << "Adaptive routing based on bandwidth utilization " << endl;
                 Switch::fn = &Switch::compare_bandwidth;
+                if (topo_type == DFP_SPARSE_T) {
+                    Switch::fn = &DragonFlyPlusSwitch::compare_bandwidth;
+                }
             }
             else if (!strcmp(argv[i+1],"pqb")){
                 cout << "Adaptive routing based on pause, queuesize and bandwidth utilization " << endl;
                 Switch::fn = &Switch::compare_pqb;
+                if (topo_type == DFP_SPARSE_T) {
+                    Switch::fn = &DragonFlyPlusSwitch::compare_pqb;
+                }
             }
             else if (!strcmp(argv[i+1],"pq")){
                 cout << "Adaptive routing based on pause, queuesize" << endl;
                 Switch::fn = &Switch::compare_pq;
+                if (topo_type == DFP_SPARSE_T) {
+                    Switch::fn = &DragonFlyPlusSwitch::compare_pq;
+                }
             }
             else if (!strcmp(argv[i+1],"pb")){
                 cout << "Adaptive routing based on pause, bandwidth utilization" << endl;
                 Switch::fn = &Switch::compare_pb;
+                if (topo_type == DFP_SPARSE_T) {
+                    Switch::fn = &DragonFlyPlusSwitch::compare_pb;
+                }
             }
             else if (!strcmp(argv[i+1],"qb")){
                 cout << "Adaptive routing based on queuesize, bandwidth utilization" << endl;
-                Switch::fn = &Switch::compare_qb; 
+                Switch::fn = &Switch::compare_qb;
+                if (topo_type == DFP_SPARSE_T) {
+                    Switch::fn = &DragonFlyPlusSwitch::compare_qb;
+                }
             }
             else {
                 cout << "Unknown AR method expecting one of pause, queue, bandwidth, pqb, pq, pb, qb" << endl;
@@ -756,6 +792,11 @@ int main(int argc, char **argv) {
 
     cout << "Setting min RTO to " << timeAsUs(UecSrc::_min_rto) << endl;
 
+    if (CompositeQueue::isLossless) {
+        LosslessInputQueue::_low_threshold = memFromPkt(pfc_xon);
+        LosslessInputQueue::_high_threshold = memFromPkt(pfc_xoff);
+    }
+
     if (ecn) {
         if (!param_ecn_set) {
             uint32_t bdp_pkt = calculate_bdp_pkt(topo_cfg.get(), linkspeed);
@@ -940,7 +981,7 @@ int main(int argc, char **argv) {
                 mp = make_unique<UecMpReps>(path_entropy_size, UecSrc::_debug, !disable_trim);
             } else if (load_balancing_algo == REPS_LEGACY){
                 mp = make_unique<UecMpRepsLegacy>(path_entropy_size, UecSrc::_debug);
-            }else if (load_balancing_algo == OBLIVIOUS){
+            } else if (load_balancing_algo == OBLIVIOUS){
                 mp = make_unique<UecMpOblivious>(path_entropy_size, UecSrc::_debug);
             } else if (load_balancing_algo == MIXED){
                 mp = make_unique<UecMpMixed>(path_entropy_size, UecSrc::_debug);
@@ -950,6 +991,10 @@ int main(int argc, char **argv) {
             }
 
             uec_src = new UecSrc(traffic_logger, eventlist, move(mp), *nics.at(src), ports);
+
+            for (uint32_t p = 0; p < ports; p++) {
+                topo[p]->connectHostToHostQueue(src, uec_src->getPort(p));
+            }
 
             if (crt->flowid) {
                 uec_src->setFlowId(crt->flowid);
@@ -995,6 +1040,13 @@ int main(int argc, char **argv) {
                     uec_src->initNscc(cwnd_b, network_max_unloaded_rtt);
                 }
             }
+
+            if (no_cc) {
+                // just so that we set the cwnd to be the given one
+                uec_src->initNscc(cwnd_b, network_max_unloaded_rtt);
+                uec_src->_sender_based_cc = false;
+            }
+
             uec_srcs.push_back(uec_src);
             uec_src->setDst(dest);
 

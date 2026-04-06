@@ -4,8 +4,10 @@
 #include <iostream>
 #include <sstream>
 #include "ecn.h"
+#include "queue_lossless_input.h"
 
 static int global_queue_id=0;
+bool CompositeQueue::isLossless = false;
 #define DEBUG_QUEUE_ID -1 // set to queue ID to enable debugging
 
 CompositeQueue::CompositeQueue(linkspeed_bps bitrate, mem_b maxsize, EventList& eventlist, 
@@ -39,6 +41,9 @@ CompositeQueue::CompositeQueue(linkspeed_bps bitrate, mem_b maxsize, EventList& 
     _queue_id = global_queue_id++;
     if (_queue_id == DEBUG_QUEUE_ID)
         cout << "queueid " << _queue_id << " bitrate " << bitrate/1000000 << "Mb/s," << endl;
+
+    _state_low = READY;
+    _state_high = READY;
 }
 
 void CompositeQueue::beginService(){
@@ -48,10 +53,10 @@ void CompositeQueue::beginService(){
         if (_crt >= (_ratio_high+_ratio_low))
             _crt = 0;
 
-        if (_crt< _ratio_high) {
+        if (_crt< _ratio_high && ((isLossless && _state_high == READY) || !isLossless)) {
             _serv = QUEUE_HIGH;
             eventlist().sourceIsPendingRel(*this, drainTime(_enqueued_high.back()));
-        } else {
+        } else if ((isLossless && _state_low == READY) || !isLossless) {
             assert(_crt < _ratio_high+_ratio_low);
             _serv = QUEUE_LOW;
             eventlist().sourceIsPendingRel(*this, drainTime(_enqueued_low.back()));      
@@ -62,11 +67,10 @@ void CompositeQueue::beginService(){
     if (!_enqueued_high.empty()) {
         _serv = QUEUE_HIGH;
         eventlist().sourceIsPendingRel(*this, drainTime(_enqueued_high.back()));
-    } else if (!_enqueued_low.empty()) {
+    } else if (!_enqueued_low.empty() && ((isLossless && _state_low == READY) || !isLossless)) {
         _serv = QUEUE_LOW;
         eventlist().sourceIsPendingRel(*this, drainTime(_enqueued_low.back()));
     } else {
-        assert(0);
         _serv = QUEUE_INVALID;
     }
 }
@@ -82,6 +86,28 @@ bool CompositeQueue::decide_ECN() {
         }
     }
     return false;
+}
+
+void CompositeQueue::processPause(EthPausePacket* p) {
+    assert(isLossless);
+
+    if (p->sleepTime()>0){
+        //remote end is telling us to shut up.
+        //assert(_state_send == READY);
+        if (_serv == QUEUE_LOW) {
+            // We have a pkt in flight, wait for it to finish sending then stop
+            _state_low = PAUSE_RECEIVED;
+        } else {
+            _state_low = PAUSED;
+        }
+    }
+    else {
+        //we are allowed to send!
+        _state_low = READY;
+
+        if(((p->header_only() && _enqueued_high.size() > 0) || (!p->header_only() && _enqueued_low.size() > 0)) && _serv == QUEUE_INVALID)
+            beginService();
+    }
 }
 
 void CompositeQueue::completeService(){
@@ -131,6 +157,18 @@ void CompositeQueue::completeService(){
     } else {
         assert(0);
     }
+
+    if (isLossless) {
+        LosslessInputQueue* prev_Q = pkt->get_ingress_queue();
+        prev_Q->completedService(*pkt);
+
+        if (pkt->header_only() && _state_high == PAUSE_RECEIVED) {
+            _state_high = PAUSED;
+        } else if (!pkt->header_only() && _state_low == PAUSE_RECEIVED) {
+            _state_low = PAUSED;
+        }
+    }
+    pkt->clear_ingress_queue();
     
     pkt->flow().logTraffic(*pkt,*this,TrafficLogger::PKT_DEPART);
     pkt->sendOn();
@@ -155,6 +193,13 @@ void CompositeQueue::receivePacket(Packet& pkt)
              << _queuesize_low * 8 / ((_bitrate / 1000000.0)) << " _queueid " << _queue_id << " switch " << _switch->getID() 
              <<" flowid " << pkt.flow_id() << " ev " << pkt.pathid()<< endl;
     }
+
+    if (pkt.type()==ETH_PAUSE) {
+        EthPausePacket* p = (EthPausePacket*)&pkt;
+        processPause(p);
+        pkt.free();
+        return;
+    }
     pkt.flow().logTraffic(pkt,*this,TrafficLogger::PKT_ARRIVE);
     if (_logger) _logger->logQueue(*this, QueueLogger::PKT_ARRIVE, pkt);
 
@@ -177,11 +222,14 @@ void CompositeQueue::receivePacket(Packet& pkt)
                 _queuesize_low -= booted_pkt->size();
                 if (_logger) _logger->logQueue(*this, QueueLogger::PKT_UNQUEUE, *booted_pkt);
 
-                if (_disable_trim) {
+                if (_disable_trim || isLossless) {
                     booted_pkt->free();
                     _num_drops++;
-                    cout << "A [ " << _enqueued_low.size() << " " << _enqueued_high.size() << " ] DROP "
+                    cout << timeAsUs(eventlist().now())
+                         << " " << _nodename
+                         << " A [ " << _enqueued_low.size() << " " << _enqueued_high.size() << " ] DROP "
                          << " flowid " << booted_pkt->flow_id()<< endl;
+                    assert(0);
                 } else {
                     // cout << "A [ " << _enqueued_low.size() << " " << _enqueued_high.size() << " ] STRIP" << endl;
                     // cout << "booted_pkt->size(): " << booted_pkt->size();
@@ -218,6 +266,7 @@ void CompositeQueue::receivePacket(Packet& pkt)
                             booted_pkt->free();
                             if (_logger)
                                 _logger->logQueue(*this, QueueLogger::PKT_DROP, pkt);
+                            assert(0);
                         }
                     } else {
                         _enqueued_high.push(booted_pkt);
@@ -242,15 +291,21 @@ void CompositeQueue::receivePacket(Packet& pkt)
             
             return;
         } else {
-            if (_disable_trim) {
+            if (_disable_trim || isLossless) {
                 if (_queue_id == DEBUG_QUEUE_ID) {
                     cout <<timeAsUs(eventlist().now()) << "B[ " << _enqueued_low.size() << " "
                          << _enqueued_high.size() << " ] DROP " << pkt.flow().flow_id() << " queue "
                          << str() << " pathid " <<pkt.pathid()<< " queueid " << _queue_id
                          << " size " << pkt.size() << endl;
                 }
+                cout << timeAsUs(eventlist().now())
+                     << " " << _nodename
+                     << " qsize_low: " << _queuesize_low
+                     << " max_q: " << _maxsize
+                     << endl;
                 pkt.free();
                 _num_drops++;
+                assert(0);
                 return;
             }
             //strip packet the arriving packet - low priority queue is full
@@ -294,6 +349,7 @@ void CompositeQueue::receivePacket(Packet& pkt)
                  << pkt.flow().flow_id() << endl;
             pkt.free();
             _num_drops++;
+            assert(0);
             return;
         }
     }

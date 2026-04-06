@@ -16,6 +16,7 @@
 #include "config.h"
 #include "eventlist.h"
 #include "network.h"
+#include "eth_pause_packet.h"
 #include "loggertypes.h"
 
 class CompositeQueue : public Queue {
@@ -25,8 +26,12 @@ class CompositeQueue : public Queue {
                    uint16_t trim_size, bool disable_trim=false);
     virtual void receivePacket(Packet& pkt);
     virtual void doNextEvent();
+
+    enum queue_state {PAUSED,READY,PAUSE_RECEIVED};
+
     // should really be private, but loggers want to see
     mem_b _queuesize_low,_queuesize_high;
+    queue_state _state_low, _state_high;
     int num_headers() const { return _num_headers;}
     int num_packets() const { return _num_packets;}
     int num_stripped() const { return _num_stripped;}
@@ -55,6 +60,8 @@ class CompositeQueue : public Queue {
             cout << "queue_id " << _queue_id << " ecn_low " << _ecn_minthresh << " ecn_high " << _ecn_maxthresh << endl;
     }
 
+    bool is_paused() { return _state_low == PAUSED || _state_low == PAUSE_RECEIVED; };
+
     int _num_packets;
     int _num_headers; // only includes data packets stripped to headers, not acks or nacks
     int _num_acks;
@@ -63,12 +70,14 @@ class CompositeQueue : public Queue {
     int _num_stripped; // count of packets we stripped
     int _num_bounced;  // count of packets we bounced
     mem_b _queuesize_high_watermark; // max occupancy of high priority queue
+    static bool isLossless;
 
  protected:
     // Mechanism
     void beginService(); // start serving the item at the head of the queue
     void completeService(); // wrap up serving the item at the head of the queue
     bool decide_ECN();
+    void processPause(EthPausePacket* p);
 
     bool _disable_trim;
 

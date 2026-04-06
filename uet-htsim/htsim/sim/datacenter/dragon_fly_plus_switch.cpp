@@ -7,6 +7,8 @@
 #include "callback_pipe.h"
 #include "queue_lossless.h"
 #include "queue_lossless_output.h"
+#include "compositequeue.h"
+
 
 DragonFlyPlusSwitch::DragonFlyPlusSwitch(EventList& eventlist, string s, switch_type t, uint32_t id,simtime_picosec delay, DragonFlyPlusTopology* dfp):
     Switch(eventlist, s), _topo_dfp_sparse_cfg(dfp->get_sparse_cfg_reference())
@@ -76,6 +78,106 @@ int8_t DragonFlyPlusSwitch::compare_queuesize_sparse(FibEntry* left, FibEntry* r
         return -1;
     else 
         return 0;
+}
+
+int8_t DragonFlyPlusSwitch::compare_pause(FibEntry* left, FibEntry* right){
+    Route * r1= left->getEgressPort();
+    assert(r1 && r1->size()>1);
+    CompositeQueue* q1 = dynamic_cast<CompositeQueue*>(r1->at(0));
+    Route * r2= right->getEgressPort();
+    assert(r2 && r2->size()>1);
+    CompositeQueue* q2 = dynamic_cast<CompositeQueue*>(r2->at(0));
+
+    if (!q1->is_paused()&&q2->is_paused())
+        return 1;
+    else if (q1->is_paused()&&!q2->is_paused())
+        return -1;
+    else 
+        return 0;
+}
+
+int8_t DragonFlyPlusSwitch::compare_queuesize(FibEntry* left, FibEntry* right){
+    Route * r1= left->getEgressPort();
+    assert(r1 && r1->size()>1);
+    BaseQueue* q1 = dynamic_cast<BaseQueue*>(r1->at(0));
+    Route * r2= right->getEgressPort();
+    assert(r2 && r2->size()>1);
+    BaseQueue* q2 = dynamic_cast<BaseQueue*>(r2->at(0));
+
+    if (q1->quantized_queuesize() < q2->quantized_queuesize())
+        return 1;
+    else if (q1->quantized_queuesize() > q2->quantized_queuesize())
+        return -1;
+    else 
+        return 0;
+}
+
+int8_t DragonFlyPlusSwitch::compare_bandwidth(FibEntry* left, FibEntry* right){
+    Route * r1= left->getEgressPort();
+    assert(r1 && r1->size()>1);
+    BaseQueue* q1 = dynamic_cast<BaseQueue*>(r1->at(0));
+    Route * r2= right->getEgressPort();
+    assert(r2 && r2->size()>1);
+    BaseQueue* q2 = dynamic_cast<BaseQueue*>(r2->at(0));
+
+    if (q1->quantized_utilization() < q2->quantized_utilization())
+        return 1;
+    else if (q1->quantized_utilization() > q2->quantized_utilization())
+        return -1;
+    else 
+        return 0;
+
+    /*if (q1->average_utilization() < q2->average_utilization())
+        return 1;
+    else if (q1->average_utilization() > q2->average_utilization())
+        return -1;
+    else 
+        return 0;        */
+}
+
+int8_t DragonFlyPlusSwitch::compare_pqb(FibEntry* left, FibEntry* right){
+    //compare pause, queuesize, bandwidth.
+    int8_t p = compare_pause(left, right);
+
+    if (p!=0)
+        return p;
+    
+    p = compare_queuesize(left,right);
+
+    if (p!=0)
+        return p;
+
+    return compare_bandwidth(left,right);
+}
+
+int8_t DragonFlyPlusSwitch::compare_pq(FibEntry* left, FibEntry* right){
+    //compare pause, queuesize, bandwidth.
+    int8_t p = compare_pause(left, right);
+
+    if (p!=0)
+        return p;
+    
+    return compare_queuesize(left,right);
+}
+
+int8_t DragonFlyPlusSwitch::compare_qb(FibEntry* left, FibEntry* right){
+    //compare pause, queuesize, bandwidth.
+    int8_t p = compare_queuesize(left, right);
+
+    if (p!=0)
+        return p;
+    
+    return compare_bandwidth(left,right);
+}
+
+int8_t DragonFlyPlusSwitch::compare_pb(FibEntry* left, FibEntry* right){
+    //compare pause, queuesize, bandwidth.
+    int8_t p = compare_pause(left, right);
+
+    if (p!=0)
+        return p;
+    
+    return compare_bandwidth(left,right);
 }
 
 void DragonFlyPlusSwitch::receivePacket(Packet& pkt){

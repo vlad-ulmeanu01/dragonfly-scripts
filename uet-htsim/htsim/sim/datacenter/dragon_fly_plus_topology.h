@@ -106,7 +106,8 @@ public:
     int get_oversubscription_ratio() {return get_oversubscription_ratio(1);}; // Basically route_strategy=Switch::ECMP
     int get_oversubscription_ratio(uint32_t route_strategy);
     simtime_picosec get_diameter_latency() {return 5 * _hop_latency + 4 * _switch_latency;};
-    simtime_picosec get_two_point_diameter_latency(int src, int dst);
+    simtime_picosec get_two_point_diameter_latency(int src, int dst);    
+    void connectHostToHostQueue(uint32_t src, UecSrcPort *port_src) override;
     std::vector<std::vector<uint32_t>>& get_sparse_cfg_reference() { return _topo_dfp_sparse_cfg; }
 
 private:
@@ -119,7 +120,7 @@ private:
     uint32_t _k, _p, _l, _s, _h;
     uint32_t _type;
     const char *_topo_dfp_sparse_file;
-    std::vector<std::vector<uint32_t>> _topo_dfp_sparse_cfg; /// TODO: poate faci un getter aici.
+    std::vector<std::vector<uint32_t>> _topo_dfp_sparse_cfg;
     uint32_t _no_of_nodes;
     uint32_t _no_of_groups,_no_of_switches, _no_of_leafs, _no_of_spines;
     simtime_picosec _hop_latency, _switch_latency;

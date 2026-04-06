@@ -17,6 +17,13 @@ public:
   
     static int8_t compare_queuesize_dense(FibEntry* left, FibEntry* right);
     static int8_t compare_queuesize_sparse(FibEntry* left, FibEntry* right);
+    static int8_t compare_pause(FibEntry* l, FibEntry* r);
+    static int8_t compare_bandwidth(FibEntry* l, FibEntry* r);
+    static int8_t compare_queuesize(FibEntry* l, FibEntry* r);
+    static int8_t compare_pqb(FibEntry* l, FibEntry* r);//compare pause,queue, bw.
+    static int8_t compare_pq(FibEntry* l, FibEntry* r);//compare pause, queue
+    static int8_t compare_pb(FibEntry* l, FibEntry* r);//compare pause, bandwidth
+    static int8_t compare_qb(FibEntry* l, FibEntry* r);//compare pause, bandwidth
     virtual void receivePacket(Packet& pkt);
     virtual Route* getNextHop(Packet& pkt, BaseQueue* ingress_port);
     virtual uint32_t getType() {return _type;}

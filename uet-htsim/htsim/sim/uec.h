@@ -87,13 +87,17 @@ private:
 // Packets are received on ports, but then passed to the Src for handling
 class UecSrcPort : public PacketSink {
 public:
+    enum port_state {PAUSED, READY};
+
     UecSrcPort(UecSrc& src, uint32_t portnum);
     void setRoute(const Route& route);
     inline const Route* route() const {return _route;}
     virtual void receivePacket(Packet& pkt);
     virtual const string& nodename();
+    port_state getPortState() { return _port_state; };
 private:
     UecSrc& _src;
+    port_state _port_state;
     uint8_t _port_num;
     const Route* _route;  // we're only going to support ECMP_HOST for now.
 };
@@ -209,6 +213,7 @@ public:
     static uint16_t _mss;  // does not include header
     static uint16_t _mtu;  // does include header
 
+    static bool _no_cc;
     static bool _sender_based_cc;
     static bool _receiver_based_cc;
 
@@ -235,6 +240,7 @@ public:
     static bool _shown;
     bool _debug_src;
     bool debug() const { return _debug_src; }
+    void sendIfPermitted();
 
    private:
     unique_ptr<UecMultipath> _mp;
@@ -262,7 +268,6 @@ public:
 
     map<UecDataPacket::seq_t, mem_b> _rtx_queue;
     bool isSendPermitted();
-    void sendIfPermitted();
     mem_b sendPacket(const Route& route);
     mem_b sendNewPacket(const Route& route);
     mem_b sendRtxPacket(const Route& route);

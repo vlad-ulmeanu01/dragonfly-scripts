@@ -37,6 +37,7 @@ UecBasePacket::pull_quanta UecSink::_credit_per_pull = (UecSrc::_mss * UecSink::
 
 bool UecSrc::_debug = false;
 
+bool UecSrc::_no_cc = false;
 bool UecSrc::_sender_based_cc = false;
 bool UecSrc::_receiver_based_cc = false;
 bool UecSink::_oversubscribed_cc = false; // can only be enabled when receiver_based_cc is set to true
@@ -457,6 +458,7 @@ void UecNIC::doNextEvent() {
 ////////////////////////////////////////////////////////////////
 UecSrcPort::UecSrcPort(UecSrc& src, uint32_t port_num)
     : _src(src), _port_num(port_num) {
+    _port_state = port_state::READY;
 }
 
 void UecSrcPort::setRoute(const Route& route) {
@@ -464,6 +466,16 @@ void UecSrcPort::setRoute(const Route& route) {
 }
 
 void UecSrcPort::receivePacket(Packet& pkt) {
+    if (pkt.type() == ETH_PAUSE) {
+        EthPausePacket *p = (EthPausePacket*) &pkt;
+        if (p->sleepTime() > 0) {
+            _port_state = port_state::PAUSED;
+        } else {
+            _port_state = port_state::READY;
+            _src.sendIfPermitted();
+        }
+        return;
+    }
     _src.receivePacket(pkt, _port_num);
 }
 
@@ -477,7 +489,7 @@ const string& UecSrcPort::nodename() {
 
 UecSrc::UecSrc(TrafficLogger* trafficLogger, 
                EventList& eventList,
-			   unique_ptr<UecMultipath> mp, 
+               unique_ptr<UecMultipath> mp, 
                UecNIC& nic, 
                uint32_t no_of_ports, 
                bool rts)
@@ -651,7 +663,6 @@ void UecSrc::receivePacket(Packet& pkt, uint32_t portnum) {
         }
         default: {
             cout << "UecSrc::receivePacket receive default\n";
-
             abort();
         }
     }
@@ -1130,7 +1141,7 @@ bool UecSrc::can_send_RCCC() {
 bool UecSrc::can_send_NSCC(mem_b pkt_size) {
     assert(_sender_based_cc);
     return (pkt_size > 0) 
-    	   && (((!_loss_recovery_mode && _cwnd >= _in_flight + pkt_size) 
+           && (((!_loss_recovery_mode && _cwnd >= _in_flight + pkt_size) 
                 || (_loss_recovery_mode && (!_rtx_queue.empty() || _cwnd >= _in_flight + pkt_size))));
 }
 
@@ -1768,6 +1779,14 @@ void UecSrc::startConnection() {
 }
 
 bool UecSrc::isSendPermitted() {
+    bool pfc_blocked = true;
+    for (uint32_t k = 0; k < _ports.size(); k++) {
+        pfc_blocked = pfc_blocked && (_ports[k]->getPortState() == UecSrcPort::port_state::PAUSED);
+    }
+    if (pfc_blocked) {
+        return false;
+    }
+
     if (_rtx_queue.empty() && _backlog == 0) {
         return false;
     }
@@ -1777,7 +1796,13 @@ bool UecSrc::isSendPermitted() {
         return false;
     }
 
-    mem_b next_packet_size = getNextPacketSize();        
+    mem_b next_packet_size = getNextPacketSize();
+    if (_no_cc) {
+        if (next_packet_size > 0 && (_cwnd >= _in_flight + next_packet_size)) {
+            return true;
+        }
+        return false;
+    }
     if (_sender_based_cc && !can_send_NSCC(next_packet_size)) {
         return false;
     }
@@ -1923,7 +1948,14 @@ mem_b UecSrc::getNextPacketSize(){
 }
 
 void UecSrc::sendIfPermitted() {
-    // send if the NIC, credit and window allow.           
+    // send if the NIC, credit and window allow.
+    bool pfc_blocked = true;
+    for (uint32_t k = 0; k < _ports.size(); k++) {
+        pfc_blocked = pfc_blocked && (_ports[k]->getPortState() == UecSrcPort::port_state::PAUSED);
+    }
+    if (pfc_blocked) {
+        return;
+    }
 
     if (_receiver_based_cc && credit() <= 0) {
         // can send if we have *any* credit, but we don't                                                                                                         
@@ -1931,7 +1963,14 @@ void UecSrc::sendIfPermitted() {
     }
 
     //cout << timeAsUs(eventlist().now()) << " " << nodename() << " FOO " << _cwnd << " " << _in_flight << endl;                                                  
-    mem_b next_packet_size = getNextPacketSize();        
+    mem_b next_packet_size = getNextPacketSize();
+    if (_no_cc) {
+        // if we can't send
+        if (!(_cwnd >= _in_flight + next_packet_size)) {
+            return;
+        }
+    }
+
     if (_sender_based_cc) {
         if (!can_send_NSCC(next_packet_size)) {
             return;
@@ -2272,6 +2311,11 @@ void UecSrc::timeToSend(const Route& route) {
         return;
     }
 
+    if (!isSendPermitted()) {
+        _nic.cantSend(*this);
+        return;
+    }
+
     // OK, we're probably good to send
     mem_b bytes_sent = 0;
     if (_rtx_queue.empty()) {
@@ -2366,6 +2410,8 @@ void UecSrc::rtxTimerExpired() {
 
     if (_sender_based_cc)
         mark_packet_for_retransmission(seqno, pkt_size);
+    else if (_no_cc)
+        _in_flight -= pkt_size;
 
     if (!_rtx_queue.empty()) {
         // there's already a queue, so clearly we shouldn't just
@@ -2417,14 +2463,16 @@ void UecSrc::rtxTimerExpired() {
         cout << "requestSending 4\n"
              << " flow " << _flow.str() << endl;
 
-    const Route* route = _nic.requestSending(*this);
-    if (route) {
-        bool bytes_sent = sendRtxPacket(*route);
-        if (bytes_sent > 0) {
-            _nic.startSending(*this, bytes_sent, route);
-        } else {
-            _nic.cantSend(*this);
-            return;
+    if (isSendPermitted()) {
+        const Route* route = _nic.requestSending(*this);
+        if (route) {
+            bool bytes_sent = sendRtxPacket(*route);
+            if (bytes_sent > 0) {
+                _nic.startSending(*this, bytes_sent, route);
+            } else {
+                _nic.cantSend(*this);
+                return;
+            }
         }
     }
 }
@@ -2928,11 +2976,11 @@ UecPullPacket* UecSink::pull(UecBasePacket::pull_quanta& extra_credit) {
     if (extra_credit == 0) {
         // only send as much credit as the sender asked for
         auto prev_pull = _latest_pull;
-	_latest_pull += UecSink::_credit_per_pull;
+    _latest_pull += UecSink::_credit_per_pull;
         if (_latest_pull > _highest_pull_target) {
             // don't go above pull_target, but also don't go backwards
             _latest_pull = max(_highest_pull_target, prev_pull);
-	}
+    }
         extra_credit = _latest_pull - prev_pull;
     } else {
         // it's a slow pull, ignore pull target and just grant what we're told
@@ -3168,5 +3216,3 @@ void UecPullPacer::requestPull(UecSink* sink) {
         _active = true;
     }
 }
-
-

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <sstream>
 #include "switch.h"
+#include "compositequeue.h"
 
 uint64_t LosslessInputQueue::_high_threshold = 0;
 uint64_t LosslessInputQueue::_low_threshold = 0;
@@ -13,8 +14,10 @@ LosslessInputQueue::LosslessInputQueue(EventList& eventlist)
       VirtualQueue(),
       _state_recv(READY)
 {
-    assert(_high_threshold>0);
-    assert(_high_threshold > _low_threshold);
+    if (CompositeQueue::isLossless) {
+        assert(_high_threshold>0);
+        assert(_high_threshold > _low_threshold);
+    }
 
     _wire = NULL;
 }
@@ -24,8 +27,10 @@ LosslessInputQueue::LosslessInputQueue(EventList& eventlist,BaseQueue* peer)
       VirtualQueue(),
       _state_recv(READY)
 {
-    assert(_high_threshold>0);
-    assert(_high_threshold > _low_threshold);
+    if (CompositeQueue::isLossless) {
+        assert(_high_threshold>0);
+        assert(_high_threshold > _low_threshold);
+    }
 
     stringstream ss;
     ss << "VirtualQueue("<< peer->_name<< ")";
@@ -42,8 +47,10 @@ LosslessInputQueue::LosslessInputQueue(EventList& eventlist,BaseQueue* peer, Swi
       VirtualQueue(),
       _state_recv(READY)
 {
-    assert(_high_threshold>0);
-    assert(_high_threshold > _low_threshold);
+    if (CompositeQueue::isLossless) {
+        assert(_high_threshold>0);
+        assert(_high_threshold > _low_threshold);
+    }
 
     stringstream ss;
     ss << "VirtualQueue("<< peer->_name<< ")";
@@ -67,7 +74,7 @@ LosslessInputQueue::receivePacket(Packet& pkt)
 
     //send PAUSE notifications if that is the case!
     assert(_queuesize > 0);
-    if ((uint64_t)_queuesize > _high_threshold && _state_recv!=PAUSED){
+    if (CompositeQueue::isLossless && (uint64_t)_queuesize > _high_threshold && _state_recv!=PAUSED){
         _state_recv = PAUSED;
         sendPause(1000);
     }
@@ -75,8 +82,8 @@ LosslessInputQueue::receivePacket(Packet& pkt)
     //if (_state_recv==PAUSED)
     //cout << timeAsMs(eventlist().now()) << " queue " << _name << " switch (" << _switch->_name << ") "<< " recv when paused pkt " << pkt.type() << " sz " << _queuesize << endl;        
 
-    if (_queuesize > _maxsize){
-        cout << " Queue " << _name << " LOSSLESS not working! I should have dropped this packet" << _queuesize / Packet::data_packet_size() << endl;
+    if (CompositeQueue::isLossless && _queuesize > _maxsize){
+        cout << " Queue " << _nodename << " LOSSLESS not working! I should have dropped this packet" << _queuesize / Packet::data_packet_size() << endl;
     }
     
     //tell the output queue we're here!
@@ -97,7 +104,7 @@ void LosslessInputQueue::completedService(Packet& pkt){
 
     //unblock if that is the case
     assert(_queuesize >= 0);
-    if ((uint64_t)_queuesize < _low_threshold && _state_recv == PAUSED) {
+    if (CompositeQueue::isLossless && (uint64_t)_queuesize < _low_threshold && _state_recv == PAUSED) {
         _state_recv = READY;
         sendPause(0);
     }

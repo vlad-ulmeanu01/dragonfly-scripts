@@ -555,4 +555,19 @@ FairPriorityQueue::queuesize() const {
     return _queuesize[Q_LO] + _queuesize[Q_MID] + _queuesize[Q_HI];
 }
 
+/**
+ * Queue made for the NICs that implement some sort of reaction to PFC
+ */
+void DummyQueue::receivePacket(Packet& pkt)
+{
+    if (pkt.type() == ETH_PAUSE) {
+        // Pass the pkt directly we don't need to wait
+        for (uint32_t k = 0; k < _senders.size(); k++) {
+            _senders[k]->receivePacket(pkt);
+        }
+    } else {
+        pkt.sendOn();
+    }
+}
+
 template class CircularBuffer<Packet*>;

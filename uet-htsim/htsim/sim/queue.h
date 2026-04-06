@@ -183,5 +183,20 @@ class FairPriorityQueue : public HostQueue {
     int _state_send;
 };
 
+/**
+ * Queue made for the NICs that implement some sort of reaction to PFC
+ */
+class DummyQueue : public HostQueue {
+  public:
+    DummyQueue(linkspeed_bps bitrate, mem_b maxsize,
+               EventList &eventlist, QueueLogger* logger) : HostQueue(bitrate, maxsize, eventlist, logger) { ; };
+    virtual void receivePacket(Packet& pkt);
+    virtual mem_b queuesize() const { return 0; };
+    virtual simtime_picosec serviceTime(Packet& pkt) { return 0; };
+
+  protected:
+    virtual void beginService() { ; };
+    virtual void completeService() { ; };
+};
 
 #endif
