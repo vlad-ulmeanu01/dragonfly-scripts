@@ -11,7 +11,7 @@ INCAST_TYPE = "group"
 # INCAST_TYPE = "host"
 assert INCAST_TYPE in ["host", "group"], "unknown INCAST_TYPE"
 
-K = 8
+K = 6
 
 H = K // 2
 CNT_NODES = (H**2 + 1) * H**2
@@ -19,7 +19,7 @@ CNT_GROUPS = H**2 + 1
 GROUP_SIZE = H**2
 
 CNT_RUNS_PER_TOPO = 5
-
+DO_SENDER_CC = False # False <=> PFC, no cc.
 
 def generate_transport_matrix(incasted_host: int):
     with open(du.TM_FILE, 'w') as fout:
@@ -43,7 +43,7 @@ def generate_transport_matrix(incasted_host: int):
 
 
 def run_sim(topos: list):
-    pool = mp.Pool(processes = 16)
+    pool = mp.Pool(processes = 4)
     srs = []
 
     t_start = time.time()
@@ -53,7 +53,7 @@ def run_sim(topos: list):
         cmds = [
             du.get_htsim_cmdlist(
                 seed = du.SEEDS[nt], tm_file = du.TM_FILE, end_time = du.END_TIME, cnt_paths = du.CNT_PATHS, link_speed = du.LINK_SPEED, k = K, queue_size = du.QUEUE_SIZE,
-                ecn = du.ECN, topo = topo, do_sender_cc = du.DO_SENDER_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}_{tid}.dat"
+                ecn = du.ECN, topo = topo, do_sender_cc = DO_SENDER_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}_{tid}.dat"
             )
             for nt in range(CNT_RUNS_PER_TOPO) for tid, topo in enumerate(topos)
         ]
@@ -69,9 +69,14 @@ def main():
     ht = {
         "EXP_TYPE": "full_incast", "INCAST_TYPE": INCAST_TYPE, "K": K, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO, "TOPOLOGIES_PER_SCORE": du.TOPOLOGIES_PER_SCORE,
         "SEEDS": du.SEEDS[:CNT_RUNS_PER_TOPO], "FLOW_SIZE": du.FLOW_SIZE, "LINK_SPEED": du.LINK_SPEED, "END_TIME": du.END_TIME, "CNT_PATHS": du.CNT_PATHS,
-        "DO_SENDER_CC": du.DO_SENDER_CC, "BDP_PKTS": du.BDP_PKTS, "QUEUE_SIZE": du.QUEUE_SIZE, "ECN": list(du.ECN), "PKT_SPRAYING": du.PKT_SPRAYING,
+        "DO_SENDER_CC": DO_SENDER_CC, "BDP_PKTS": du.BDP_PKTS, "QUEUE_SIZE": du.QUEUE_SIZE, "ECN": list(du.ECN), "PKT_SPRAYING": du.PKT_SPRAYING,
         "TOTAL_TIME": 0
     }
+
+    if not DO_SENDER_CC: # PFC.
+        ht["ECN"] = [du.QUEUE_SIZE, du.QUEUE_SIZE]
+        ht["PFC"] = [du.PFC_OFF, du.PFC_ON]
+        ht["BASE_RTO"] = du.BASE_RTO
 
     t_start = time.time()
     for topo_name in du.TOPOS[K]:

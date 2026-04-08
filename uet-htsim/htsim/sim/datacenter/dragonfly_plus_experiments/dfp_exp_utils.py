@@ -50,8 +50,12 @@ DO_SENDER_CC = True
 
 BDP_PKTS = 33 # specific pentru Dfp. fa alt fisier utils pentru slimfly/dfly normal.
 
-QUEUE_SIZE = BDP_PKTS # 3 * 
+QUEUE_SIZE = BDP_PKTS
 ECN = (int(BDP_PKTS * 0.2), BDP_PKTS - int(BDP_PKTS * 0.2))
+
+BASE_RTO = 100 # folosit doar pentru DO_SENDER_CC = False. Default pentru K = 4.
+PFC_OFF, PFC_ON = int(BDP_PKTS // 2), BDP_PKTS
+
 
 PKT_SPRAYING = "greedy2"
 assert PKT_SPRAYING in ["greedy1", "greedy2"], "unknown PKT_SPRAYING"
@@ -88,18 +92,31 @@ def get_htsim_cmdlist(
         "-paths", f"{cnt_paths}",
         "-linkspeed", f"{link_speed}",
         "-radix", f"{k}",
-        "-q", f"{queue_size}",
-        "-ecn", f"{ecn[0]}", f"{ecn[1]}",
-        "-cwnd", f"37",
+        "-cwnd", f"{BDP_PKTS}",
         "-topo_type", "DFP_SPARSE",
-        "-sender_cc_only" if do_sender_cc else "-receiver_cc_only",
         "-load_balancing_algo", "oblivious",
         "-strat", "ecmp_all"
     ]
 
+    if do_sender_cc:
+        cmdlist.extend([
+            "-q", f"{queue_size}",
+            "-ecn", f"{ecn[0]}", f"{ecn[1]}",
+            "-sender_cc_only"
+        ])
+    else:
+        queue_size = (k + 1) * BDP_PKTS
+        cmdlist.extend([
+            "-q", f"{queue_size}",
+            "-ecn", f"{queue_size}", f"{queue_size}",
+            "-no_cc",
+            "-pfc", f"{PFC_OFF}", f"{PFC_ON}",
+            "-rto", f"{int(BASE_RTO * k / 4)}"
+        ])
+
     if topo:
         cmdlist.extend(["-topo_dfp_sparse", f"{topo}"])
-    if pkt_spraying == "greedy2": # sper ca baga Greedy[2] asta.
+    if pkt_spraying == "greedy2":
         cmdlist.extend(["-ar_method", "queue"])
 
     return cmdlist
