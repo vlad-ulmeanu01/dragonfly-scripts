@@ -36,7 +36,7 @@ def generate_parallel_tm(use_groups: list, tm_file: str):
 
 
 def run_sim(topos: list, bibd_file: str):
-    pool = mp.Pool(processes = 4)
+    pool = mp.Pool(processes = du.CNT_PROCESSES)
     srs = []
 
     tm_files = []
@@ -50,7 +50,7 @@ def run_sim(topos: list, bibd_file: str):
         cmds = [
             du.get_htsim_cmdlist(
                 seed = du.SEEDS[nt], tm_file = tm_file, end_time = du.END_TIME, cnt_paths = du.CNT_PATHS, link_speed = du.LINK_SPEED, k = K, queue_size = du.QUEUE_SIZE,
-                ecn = du.ECN, topo = topo, do_sender_cc = du.DO_SENDER_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}_{id_tmf}.dat"
+                ecn = du.ECN, topo = topo, do_cc = du.DO_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}_{id_tmf}.dat"
             )
             for nt in range(CNT_RUNS_PER_TOPO) for id_tmf, tm_file in enumerate(tm_files)
         ]
@@ -76,7 +76,7 @@ def main():
                 ht = {
                     "EXP_TYPE": "partial_all_to_all", "K": K, "CNT_USED_GROUPS": cnt_used_groups, "BIBD_file": file, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO,
                     "TOPOLOGIES_PER_SCORE": du.TOPOLOGIES_PER_SCORE, "SEEDS": du.SEEDS[:CNT_RUNS_PER_TOPO], "FLOW_SIZE": du.FLOW_SIZE,
-                    "LINK_SPEED": du.LINK_SPEED, "END_TIME": du.END_TIME, "CNT_PATHS": du.CNT_PATHS, "DO_SENDER_CC": du.DO_SENDER_CC,
+                    "LINK_SPEED": du.LINK_SPEED, "END_TIME": du.END_TIME, "CNT_PATHS": du.CNT_PATHS, "DO_CC": du.DO_CC,
                     "BDP_PKTS": du.BDP_PKTS, "QUEUE_SIZE": du.QUEUE_SIZE, "ECN": list(du.ECN), "PKT_SPRAYING": du.PKT_SPRAYING,
                     "TOTAL_TIME": 0
                 }

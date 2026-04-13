@@ -105,7 +105,7 @@ public:
     uint32_t getTopologyType() {return _type;};
     int get_oversubscription_ratio() {return get_oversubscription_ratio(1);}; // Basically route_strategy=Switch::ECMP
     int get_oversubscription_ratio(uint32_t route_strategy);
-    simtime_picosec get_diameter_latency() {return 5 * _hop_latency + 4 * _switch_latency;};
+    simtime_picosec get_diameter_latency() {return 8 * _hop_latency + 7 * _switch_latency;};
     simtime_picosec get_two_point_diameter_latency(int src, int dst);    
     void connectHostToHostQueue(uint32_t src, UecSrcPort *port_src) override;
     std::vector<std::vector<uint32_t>>& get_sparse_cfg_reference() { return _topo_dfp_sparse_cfg; }

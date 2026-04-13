@@ -14,6 +14,11 @@ ROOT = {
     "grid.pub.ro": "/export/home/acs/stud/v/vlad_adrian.ulmeanu/Probleme/dragonfly-scripts"
 }[NODENAME]
 
+CNT_PROCESSES = {
+    "vlad-TM1701": 4,
+    "grid.pub.ro": 16
+}[NODENAME]
+
 EXE = os.path.join(ROOT, "uet-htsim/htsim/sim/build/datacenter/htsim_uec")
 CFG_ROOT = os.path.join(ROOT, "simulate_dfly_queue_sizes/configs/")
 
@@ -46,14 +51,14 @@ FLOW_SIZE = 2 * 10**6 # 2MB / host
 LINK_SPEED = 10**5 # 100 Mbps
 END_TIME = 2 * 10**5 # us
 CNT_PATHS = 128
-DO_SENDER_CC = True
+DO_CC = "receiver" # "sender", "receiver", None
 
 BDP_PKTS = 33 # specific pentru Dfp. fa alt fisier utils pentru slimfly/dfly normal.
 
 QUEUE_SIZE = BDP_PKTS
 ECN = (int(BDP_PKTS * 0.2), BDP_PKTS - int(BDP_PKTS * 0.2))
 
-BASE_RTO = 100 # folosit doar pentru DO_SENDER_CC = False. Default pentru K = 4.
+BASE_RTO = 100 # folosit doar pentru DO_CC = None. Default pentru K = 4.
 PFC_OFF, PFC_ON = int(BDP_PKTS // 2), BDP_PKTS
 
 
@@ -81,7 +86,7 @@ def proc_run(cmdlist):
 
 def get_htsim_cmdlist(
     seed: int, tm_file: str, end_time: int, cnt_paths: int, link_speed: int, k: int, queue_size: int, ecn: tuple, topo: str,
-    do_sender_cc: bool, pkt_spraying: str, logout_fname: str
+    do_cc: bool, pkt_spraying: str, logout_fname: str
 ):
     cmdlist = [
         EXE,
@@ -92,17 +97,17 @@ def get_htsim_cmdlist(
         "-paths", f"{cnt_paths}",
         "-linkspeed", f"{link_speed}",
         "-radix", f"{k}",
-        "-cwnd", f"{BDP_PKTS}",
+        # "-cwnd", f"{BDP_PKTS}",
         "-topo_type", "DFP_SPARSE",
         "-load_balancing_algo", "oblivious",
         "-strat", "ecmp_all"
     ]
 
-    if do_sender_cc:
+    if do_cc:
         cmdlist.extend([
             "-q", f"{queue_size}",
             "-ecn", f"{ecn[0]}", f"{ecn[1]}",
-            "-sender_cc_only"
+            "-sender_cc_only" if do_cc == "sender" else "-receiver_cc_only"
         ])
     else:
         queue_size = (k + 1) * BDP_PKTS
@@ -123,10 +128,10 @@ def get_htsim_cmdlist(
 
 
 def post_run_cleanup(cnt_runs_per_topo: int):
-    os.system(f"rm {TM_FILE}")
-    os.system("rm idmap.txt")
-
     for root, dir, files in os.walk('.'):
         for file in files:
             if file.startswith(f"logout_{RUN_ID}") and file.endswith(".dat"):
-                os.system(f"rm {file}")
+                os.system(f"rm {os.path.join(root, file)}")
+    
+    os.system("rm idmap.txt")
+    os.system(f"rm {TM_FILE}")
