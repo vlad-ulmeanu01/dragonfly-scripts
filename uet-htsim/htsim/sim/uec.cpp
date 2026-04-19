@@ -624,7 +624,7 @@ void UecSrc::connectPort(uint32_t port_num,
         //_flow.set_id(get_id());  // identify the packet flow with the UEC source that generated it
         _flow._name = _name;
 
-        if (start_time != TRIGGER_START) {
+        if (start_time != TRIGGER_START) { ///FIXME: || true
             eventlist().sourceIsPending(*this, timeFromUs((uint32_t)start_time));
         }
     }
@@ -2122,7 +2122,10 @@ mem_b UecSrc::sendNewPacket(const Route& route) {
     auto* p = UecDataPacket::newpkt(_flow, route, _highest_sent, full_pkt_size, ptype,
                                      _pull_target, _dstaddr);
 
+    // p->set_src(_srcaddr); ///FIXME
     uint16_t ev = _mp->nextEntropy(_highest_sent, (uint64_t)_cwnd/_mss);
+    p->set_hop_count(0); ///FIXME
+
     p->set_pathid(ev);
     p->flow().logTraffic(*p, *this, TrafficLogger::PKT_CREATESEND);
 
@@ -2167,8 +2170,10 @@ mem_b UecSrc::sendRtxPacket(const Route& route) {
     auto* p = UecDataPacket::newpkt(_flow, route, seq_no, full_pkt_size, UecDataPacket::DATA_RTX,
                                      _pull_target, _dstaddr);
 
+    // p->set_src(_srcaddr); ///FIXME
     uint16_t ev = _mp->nextEntropy(_highest_sent, (uint64_t)_cwnd/_mss);
     p->set_pathid(ev);
+    p->set_hop_count(0); ///FIXME
     p->flow().logTraffic(*p, *this, TrafficLogger::PKT_CREATESEND);
 
     createSendRecord(seq_no, full_pkt_size);
@@ -2198,9 +2203,11 @@ void UecSrc::sendProbe() {
     _probe_seqno++;
     auto* p = UecDataPacket::newpkt(_flow, NULL, _probe_seqno, _hdr_size,
                                     UecBasePacket::DATA_PROBE, 0, _dstaddr);
+    // p->set_src(_srcaddr); ///FIXME
     p->set_dst(_dstaddr);
     uint16_t ev = _mp->nextEntropy(_highest_sent, (uint64_t)_cwnd/_mss);
     p->set_pathid(ev);
+    p->set_hop_count(0); ///FIXME
     // p->sendOn();
     _nic.sendControlPacket(p, this, NULL);
 
@@ -2229,8 +2236,10 @@ void UecSrc::sendRTS() {
     auto* p =
         UecRtsPacket::newpkt(_flow, NULL, _highest_sent, _pull_target, _dstaddr);
 
+    // p->set_src(_srcaddr); ///FIXME
     uint16_t ev = _mp->nextEntropy(_highest_sent, (uint64_t)_cwnd/_mss);
     p->set_pathid(ev);
+    p->set_hop_count(0); ///FIXME
 
     // p->sendOn();
     _nic.sendControlPacket(p, this, NULL);
@@ -2513,6 +2522,7 @@ UecSink::UecSink(TrafficLogger* trafficLogger, UecPullPacer* pullPacer, UecNIC& 
     : DataReceiver("uecSink"),
       _nic(nic),
       _flow(trafficLogger),
+      // _dstaddr(UINT32_MAX), ///FIXME
       _pullPacer(pullPacer),
       _expected_epsn(0),
       _high_epsn(0),
@@ -2688,10 +2698,10 @@ void UecSink::processData(UecDataPacket& pkt) {
         _stats.duplicates++;
         _nic.logReceivedData(pkt.size(), 0);
 
-        // if (_src->flow()->flow_id() == UecSrc::_debug_flowid){   
+        if (_src->flow()->flow_id() == UecSrc::_debug_flowid) { ///TODO: recomment if (or || true)
             cout << timeAsUs(_src->eventlist().now()) << " flowid " << _src->flow()->flow_id()  
                 << " Spurious " << pkt.epsn() <<endl;
-        // }
+        }
         // sender is confused and sending us duplicates: ACK straight away.
         // this code is different from the proposed hardware implementation, as it keeps track of
         // the ACK state of OOO packets.
@@ -2991,6 +3001,9 @@ UecPullPacket* UecSink::pull(UecBasePacket::pull_quanta& extra_credit) {
     pkt = UecPullPacket::newpkt(_flow, NULL, _latest_pull, false, _srcaddr);
     pkt->set_pathid(nextEntropy());
 
+    pkt->set_hop_count(0); ///FIXME
+    // pkt->set_src(_dstaddr); ///FIXME
+
     return pkt;
 }
 
@@ -3050,17 +3063,21 @@ UecAckPacket* UecSink::sack(uint16_t path_id, UecBasePacket::seq_t seqno, UecBas
     uint64_t bitmap = buildSackBitmap(seqno);
     UecAckPacket* pkt =
         UecAckPacket::newpkt(_flow, NULL, _expected_epsn, seqno, acked_psn, path_id, ce, _recvd_bytes,_rcv_cwnd_pen,_srcaddr);
+    // pkt->set_src(_dstaddr); ///FIXME
     pkt->set_bitmap(bitmap);
     pkt->set_ooo(_out_of_order_count);
     pkt->set_rtx_echo(rtx_echo);
     pkt->set_probe_ack(false);
+    pkt->set_hop_count(0); ///FIXME
     return pkt;
 }
 
 UecNackPacket* UecSink::nack(uint16_t path_id, UecBasePacket::seq_t seqno,bool last_hop, bool ecn_echo) {
     UecNackPacket* pkt = UecNackPacket::newpkt(_flow, NULL, seqno, path_id,  _recvd_bytes,_rcv_cwnd_pen,_srcaddr);
+    // pkt->set_src(_dstaddr); ///FIXME
     pkt->set_last_hop(last_hop);
     pkt->set_ecn_echo(ecn_echo);
+    pkt->set_hop_count(0); ///FIXME
     return pkt;
 }
 
