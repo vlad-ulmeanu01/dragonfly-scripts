@@ -47,23 +47,27 @@ TOPOS = {
 # fisier temporar folosibil de un experiment, specific pentru el.
 TM_FILE = os.path.join(ROOT, f"uet-htsim/htsim/sim/datacenter/dragonfly_plus_connection_matrices/SPARSE/experiment_{RUN_ID}_tmp.cm")
 
+DFP_MAX_HOPS = 8
+DFP_RTT = 15
+PKT_SIZE = 4 * 10**3 # 4KB
+
 FLOW_SIZE = 2 * 10**6 # 2MB / host
 LINK_SPEED = 10**5 # 100 Mbps
 END_TIME = 2 * 10**5 # us
 CNT_PATHS = 128
-DO_CC = "receiver" # "sender", "receiver", None
+
+DO_CC = "sender"
+# DO_CC = "receiver"
+# DO_CC = "no_cc_pfc"
+# DO_CC = "no_cc_unlimited"
+assert DO_CC in ["sender", "receiver", "no_cc_pfc", "no_cc_unlimited"]
 
 BDP_PKTS = 33 # specific pentru Dfp. fa alt fisier utils pentru slimfly/dfly normal.
 
 QUEUE_SIZE = BDP_PKTS
 ECN = (int(BDP_PKTS * 0.2), BDP_PKTS - int(BDP_PKTS * 0.2))
 
-BASE_RTO = 100 # folosit doar pentru DO_CC = None. Default pentru K = 4.
 PFC_OFF, PFC_ON = int(BDP_PKTS // 2), BDP_PKTS
-
-
-PKT_SPRAYING = "greedy2"
-assert PKT_SPRAYING in ["greedy1", "greedy2"], "unknown PKT_SPRAYING"
 
 
 class SimResult:
@@ -86,7 +90,7 @@ def proc_run(cmdlist):
 
 def get_htsim_cmdlist(
     seed: int, tm_file: str, end_time: int, cnt_paths: int, link_speed: int, k: int, queue_size: int, ecn: tuple, topo: str,
-    do_cc: bool, pkt_spraying: str, logout_fname: str
+    do_cc: str, logout_fname: str
 ):
     cmdlist = [
         EXE,
@@ -99,39 +103,42 @@ def get_htsim_cmdlist(
         "-radix", f"{k}",
         # "-cwnd", f"{BDP_PKTS}",
         "-topo_type", "DFP_SPARSE",
-        "-load_balancing_algo", "oblivious",
-        "-strat", "ecmp_all"
+        "-load_balancing_algo", "oblivious"
     ]
 
-    if do_cc:
+    if topo:
+        cmdlist.extend(["-topo_dfp_sparse", f"{topo}"])
+
+    if do_cc in ["sender", "receiver", "no_cc_unlimited"]:
+        if do_cc == "no_cc_unlimited":
+            with open(tm_file) as fin:
+                cnt_flows = len([i for i, line in enumerate(fin.readlines()) if i > 1 and len(line.strip()) > 0])
+            queue_size = cnt_flows * FLOW_SIZE // PKT_SIZE + 1 # = cnt_packets
+            ecn = (queue_size, queue_size)
+
         cmdlist.extend([
             "-q", f"{queue_size}",
             "-ecn", f"{ecn[0]}", f"{ecn[1]}",
-            "-sender_cc_only" if do_cc == "sender" else "-receiver_cc_only"
+            "-sender_cc_only" if do_cc == "sender" else ("-receiver_cc_only" if do_cc == "receiver" else "-no_cc"),
+            "-strat", "ecmp_all",
+            "-ar_method", "queue"
         ])
-    else:
+    else: # do_cc == "no_cc_pfc"
         queue_size = (k + 1) * BDP_PKTS
         cmdlist.extend([
             "-q", f"{queue_size}",
             "-ecn", f"{queue_size}", f"{queue_size}",
             "-no_cc",
             "-pfc", f"{PFC_OFF}", f"{PFC_ON}",
-            "-rto", f"{int(BASE_RTO * k / 4)}"
+            "-rto", f"{DFP_RTT + queue_size * DFP_MAX_HOPS}",
+            "-strat", "ecmp_ar",
+            "-ar_method", "pqb"
         ])
-
-    if topo:
-        cmdlist.extend(["-topo_dfp_sparse", f"{topo}"])
-    if pkt_spraying == "greedy2":
-        cmdlist.extend(["-ar_method", "queue"])
 
     return cmdlist
 
 
 def post_run_cleanup(cnt_runs_per_topo: int):
-    for root, dir, files in os.walk('.'):
-        for file in files:
-            if file.startswith(f"logout_{RUN_ID}") and file.endswith(".dat"):
-                os.system(f"rm {os.path.join(root, file)}")
-    
+    os.system(f"rm logout_{RUN_ID}_*.dat")
     os.system("rm idmap.txt")
     os.system(f"rm {TM_FILE}")
