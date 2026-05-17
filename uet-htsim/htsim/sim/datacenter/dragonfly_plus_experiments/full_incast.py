@@ -7,80 +7,55 @@ import os
 import dfp_exp_utils as du
 
 
-INCAST_TYPE = "group"
-# INCAST_TYPE = "host"
-assert INCAST_TYPE in ["host", "group"], "unknown INCAST_TYPE"
-
-K = 6
-
-H = K // 2
-CNT_NODES = (H**2 + 1) * H**2
-CNT_GROUPS = H**2 + 1
-GROUP_SIZE = H**2
-
-CNT_RUNS_PER_TOPO = 5
-DO_CC = None # False <=> PFC, no cc.
-
-def generate_transport_matrix(incasted_host: int):
-    with open(du.TM_FILE, 'w') as fout:
-        fout.write(f"Nodes {CNT_NODES}\n")
-        fout.write(f"Connections {CNT_NODES - 1 if INCAST_TYPE == 'host' else CNT_NODES - GROUP_SIZE}\n")
+def generate_transport_matrix(args, incasted_host: int):
+    with open(args.TM_FILE, 'w') as fout:
+        fout.write(f"Nodes {args.CNT_NODES}\n")
+        fout.write(f"Connections {args.CNT_NODES - 1 if args.INCAST_TYPE == 'host' else args.CNT_NODES - args.GROUP_SIZE}\n")
 
         j = 1
-        if INCAST_TYPE == "host":
-            for i in range(CNT_NODES):
+        if args.INCAST_TYPE == "host":
+            for i in range(args.CNT_NODES):
                 if i != incasted_host:
-                    fout.write(f"{i}->{incasted_host} id {j} start {0} size {du.FLOW_SIZE}\n")
+                    fout.write(f"{i}->{incasted_host} id {j} start {0} size {args.FLOW_SIZE}\n")
                     j += 1
         else: # group incast.
-            incasted_host -= incasted_host % GROUP_SIZE
+            incasted_host -= incasted_host % args.GROUP_SIZE
             to = incasted_host
-            for i in range(CNT_NODES):
-                if i // GROUP_SIZE != incasted_host // GROUP_SIZE:
-                    fout.write(f"{i}->{to} id {j} start {0} size {du.FLOW_SIZE}\n")
-                    to = to + 1 if to + 1 < incasted_host + GROUP_SIZE else incasted_host
+            for i in range(args.CNT_NODES):
+                if i // args.GROUP_SIZE != incasted_host // args.GROUP_SIZE:
+                    fout.write(f"{i}->{to} id {j} start {0} size {args.FLOW_SIZE}\n")
+                    to = to + 1 if to + 1 < incasted_host + args.GROUP_SIZE else incasted_host
                     j += 1
 
 
-def run_sim(topos: list):
+def run_sim(args, topos: list):
     pool = mp.Pool(processes = du.CNT_PROCESSES)
     srs = []
 
     t_start = time.time()
-    for incasted_host in range(0, CNT_NODES, GROUP_SIZE):
-        generate_transport_matrix(incasted_host)
+    for incasted_host in range(0, args.CNT_NODES, args.GROUP_SIZE):
+        generate_transport_matrix(args, incasted_host)
 
         cmds = [
-            du.get_htsim_cmdlist(
-                seed = du.SEEDS[nt], tm_file = du.TM_FILE, end_time = du.END_TIME, cnt_paths = du.CNT_PATHS, link_speed = du.LINK_SPEED, k = K, queue_size = du.QUEUE_SIZE,
-                ecn = du.ECN, topo = topo, do_cc = DO_CC, pkt_spraying = du.PKT_SPRAYING, logout_fname = f"logout_{du.RUN_ID}_{nt}_{tid}.dat"
-            )
-            for nt in range(CNT_RUNS_PER_TOPO) for tid, topo in enumerate(topos)
+            du.get_htsim_cmdlist(args, args.SEEDS[nt], args.TM_FILE, topo, logout_fname = f"logout_{du.RUN_ID}_{tid}_{nt}.dat")
+            for tid, topo in enumerate(topos) for nt in range(args.CNT_RUNS_PER_TOPO)
         ]
 
         srs.extend(pool.map(du.proc_run, cmds))
 
-        print(f"Finished group {incasted_host // H**2} / {CNT_GROUPS}. {round(time.time() - t_start, 3)} s passed.", flush = True)
+        print(f"Finished group {incasted_host // args.H**2} / {args.CNT_GROUPS}. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
     return srs
 
 
-def main():
-    ht = {
-        "EXP_TYPE": "full_incast", "INCAST_TYPE": INCAST_TYPE, "K": K, "CNT_RUNS_PER_TOPO": CNT_RUNS_PER_TOPO, "TOPOLOGIES_PER_SCORE": du.TOPOLOGIES_PER_SCORE,
-        "SEEDS": du.SEEDS[:CNT_RUNS_PER_TOPO], "FLOW_SIZE": du.FLOW_SIZE, "LINK_SPEED": du.LINK_SPEED, "END_TIME": du.END_TIME, "CNT_PATHS": du.CNT_PATHS,
-        "DO_CC": DO_CC, "BDP_PKTS": du.BDP_PKTS, "QUEUE_SIZE": du.QUEUE_SIZE, "ECN": list(du.ECN), "PKT_SPRAYING": du.PKT_SPRAYING,
-        "TOTAL_TIME": 0
-    }
-
-    if DO_CC is None: # PFC.
-        ht["ECN"] = [du.QUEUE_SIZE, du.QUEUE_SIZE]
-        ht["PFC"] = [du.PFC_OFF, du.PFC_ON]
-        ht["BASE_RTO"] = du.BASE_RTO
+def main(args):
+    ht = du.get_default_ht(args)
+    ht["EXP_TYPE"] = "full_incast"
+    ht["INCAST_TYPE"] = args.INCAST_TYPE
 
     t_start = time.time()
-    for topo_name in du.TOPOS[K]:
-        srs = run_sim(topos = du.TOPOS[K][topo_name])
+    for topo_name in args.TOPOS[args.K]:
+        srs = run_sim(args, topos = args.TOPOS[args.K][topo_name])
         
         ht[topo_name] = {"mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
         # ht[topo_name] = {"mean_fct": np.array([sr.fcts[-1] for sr in srs]).mean(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
@@ -92,8 +67,19 @@ def main():
     with open(f"./jsons/full_incast_{int(time.time())}.json", 'w') as fout:
         json.dump(ht, fout, indent = 4)
 
-    du.post_run_cleanup(cnt_runs_per_topo = CNT_RUNS_PER_TOPO)
+    du.post_run_cleanup(args)
 
 
 if __name__ == "__main__":
-    main()
+    parser = du.get_default_parser()
+
+    parser.add_argument(
+        "--INCAST_TYPE", type = str, default = "group",
+        choices = ["group", "host"],
+        help = "(specific to full_incast.py) type of incast: all-to one host, all-to one group."
+    )
+
+    args = parser.parse_args()
+    args = du.edit_default_args(args)
+
+    main(args)
