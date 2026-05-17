@@ -711,6 +711,7 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
             paths_to_use.push_back(available_hops->at(i));
     // cout << "no of paths: " << paths_to_use.size() << endl;
 
+    ///FIXME: comment the following if to allow only minimal paths.
     if (_strategy == ADAPTIVE_ROUTING || _strategy == ECMP_ALL) {
         // If we used a non-minimal+1 hop, we could use from the non-minimal+3 routes or choose a minimal path
         // non-minimal+3 routes should be used only after re-routed to an intermediate group (using a non-minimal+1 path in case of DFP_DENSE)
