@@ -8,7 +8,8 @@ exps = [
     # "full_all_to_all",
     # "full_incast",
     # "adversarial_all_to_all",
-    "subclique_samez_all_to_all"
+    # "subclique_samez_all_to_all"
+    "full_all_to_all_worsen_early_completions"
 ]
 
 ht_exps = {
@@ -54,6 +55,11 @@ ht_exps = {
     "subclique_samez_all_to_all": [
         "--K 4",
         # "--K 6",
+        # "--K 8 --CNT_RUNS_PER_TOPO 1"
+    ],
+    "full_all_to_all_worsen_early_completions": [
+        "--K 4 --CNT_RUNS_PER_TOPO 1",
+        # "--K 6 --CNT_RUNS_PER_TOPO 1",
         # "--K 8 --CNT_RUNS_PER_TOPO 1"
     ]
 }
