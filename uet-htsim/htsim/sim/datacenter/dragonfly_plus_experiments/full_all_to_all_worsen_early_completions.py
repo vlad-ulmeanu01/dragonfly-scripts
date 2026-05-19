@@ -91,20 +91,28 @@ def run_sim(args, topos: list, tm_file: str):
 
     srs_base = pool.map(custom_proc_run, cmds)
 
-    print(f"{topos[0] = }: finished srs_base. {round(time.time() - t_start, 3)} s passed.")
+    print(f"{topos[0] = }: finished srs_base. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
-    for rap_w in args.WORSEN_RAPS:
-        cmds = []
+    cmds = []
+    for rap_w_id, rap_w in enumerate(args.WORSEN_RAPS):
         for (i, sr), ((tid, topo), nt) in zip(enumerate(srs_base), itertools.product(enumerate(topos), range(args.CNT_RUNS_PER_TOPO))):
-            tm_file = os.path.join(args.TM_FOLDER, f"tmp_worse_tm_file_{du.RUN_ID}_{tid}_{nt}.cm")
+            tm_file = os.path.join(args.TM_FOLDER, f"tmp_worse_tm_file_{du.RUN_ID}_{rap_w_id}_{tid}_{nt}.cm")
             generate_worse_tm_file(args, sr, rap_w, tm_file)
-            cmds.append(du.get_htsim_cmdlist(args, args.SEEDS[nt], tm_file, topo, logout_fname = f"logout_{du.RUN_ID}_{tid}_{nt}.dat"))
+            cmds.append(du.get_htsim_cmdlist(args, args.SEEDS[nt], tm_file, topo, logout_fname = f"logout_{du.RUN_ID}_{rap_w_id}_{tid}_{nt}.dat"))
 
-        ht_srs[rap_w] = pool.map(du.proc_run, cmds)
-        
-        print(f"{topos[0] = }: finished {rap_w = }. {round(time.time() - t_start, 3)} s passed.")
+    srs_worse = pool.map(du.proc_run, cmds)
+    print(f"{topos[0] = }: finished srs_worse. {round(time.time() - t_start, 3)} s passed.", flush = True)
+
+    rap_step = len(srs_worse) // len(args.WORSEN_RAPS)
+    for rap_w, id_cmds_start in zip(args.WORSEN_RAPS, range(0, len(srs_worse), rap_step)):
+        ht_srs[rap_w] = srs_worse[id_cmds_start: id_cmds_start + rap_step]
 
     ht_srs[0.0] = [du.SimResult([fct for fct, _, _ in sr.fcts], sr.rtx) for sr in srs_base]
+
+    for rap_w_id, _ in enumerate(args.WORSEN_RAPS):
+        for (tid, _), nt in itertools.product(enumerate(topos), range(args.CNT_RUNS_PER_TOPO)):
+            tm_file = os.path.join(args.TM_FOLDER, f"tmp_worse_tm_file_{du.RUN_ID}_{rap_w_id}_{tid}_{nt}.cm")
+            os.system(f"rm {tm_file}")
 
     print(f"Finished {topos[0] = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
@@ -125,9 +133,15 @@ def main(args):
         )
 
         for rap_w in ht_srs:
+            cnt_flows = args.CNT_NODES * (args.CNT_NODES - 1)
+
+            srs = [sr for sr in ht_srs[rap_w] if len(sr.fcts) == cnt_flows]
+            cnt_failed_sims = sum([len(sr.fcts) < cnt_flows for sr in ht_srs[rap_w]])
+
             ht[f"{topo_name}_{rap_w}"] = {
-                "mean_fcts": np.array([sr.fcts for sr in ht_srs[rap_w]]).mean(axis = 0).tolist(),
-                "mean_rtx": np.array([sr.rtx for sr in ht_srs[rap_w]]).mean()
+                "mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist() if len(srs) else [],
+                "mean_rtx": np.array([sr.rtx for sr in srs]).mean() if len(srs) else [],
+                "rap_failed_sims": cnt_failed_sims / len(ht_srs[rap_w])
             }
 
         print(f"Finished {topo_name = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
@@ -144,7 +158,7 @@ if __name__ == "__main__":
     parser = du.get_default_parser()
 
     parser.add_argument(
-        "--WORSEN_RAPS", type = str, default = "[0.1,0.2,0.3,0.4,0.5]", # [0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5]
+        "--WORSEN_RAPS", type = str, default = "[0.05,0.1,0.15,0.2,0.3]", # [0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5]
         help = "(specific to full_all_to_all_worsen_early_competions.py) string array of floats (no spaces): the first ?% of finishing flows will be padded s.t. they finish at least at the actual FCT in a rerun."
     )
 
