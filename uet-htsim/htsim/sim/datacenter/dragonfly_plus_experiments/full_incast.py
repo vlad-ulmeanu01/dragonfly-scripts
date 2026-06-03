@@ -52,13 +52,16 @@ def main(args):
     ht = du.get_default_ht(args)
     ht["EXP_TYPE"] = "full_incast"
     ht["INCAST_TYPE"] = args.INCAST_TYPE
+    ht["HT_FCT_KEEP"] = args.HT_FCT_KEEP
 
     t_start = time.time()
     for topo_name in args.TOPOS[args.K]:
         srs = run_sim(args, topos = args.TOPOS[args.K][topo_name])
         
-        ht[topo_name] = {"mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
-        # ht[topo_name] = {"mean_fct": np.array([sr.fcts[-1] for sr in srs]).mean(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
+        if args.HT_FCT_KEEP == "mean":
+            ht[topo_name] = {"mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist(), "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
+        else:
+            ht[topo_name] = {"fcts": [sr.fcts for sr in srs], "mean_rtx": np.array([sr.rtx for sr in srs]).mean()}
 
         print(f"Finished {topo_name = }. {ht[topo_name] = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
@@ -77,6 +80,12 @@ if __name__ == "__main__":
         "--INCAST_TYPE", type = str, default = "group",
         choices = ["group", "host"],
         help = "(specific to full_incast.py) type of incast: all-to one host, all-to one group."
+    )
+
+    parser.add_argument(
+        "--HT_FCT_KEEP", type = str, default = "mean",
+        choices = ["mean", "all"],
+        help = "(specific to full_incast.py) how to keep FCTs, mean over "
     )
 
     args = parser.parse_args()
