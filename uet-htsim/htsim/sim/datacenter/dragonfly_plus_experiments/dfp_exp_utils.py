@@ -39,7 +39,7 @@ def get_default_parser():
 
     parser.add_argument(
         "--SEEDS", type = str,
-        default = "[46005871,514420321,553169759,604623024,1041518730]",
+        default = "[46005871,514420321,553169759,604623024,1041518730,865395303,939417978,115462574,860852863,655131368]",
         help="Seeds used for different runs on the same topology. Pass as string with no spaces, e.g. [1,3,5]."
     )
 
@@ -60,6 +60,7 @@ def get_default_parser():
     parser.add_argument("--BDP_PKTS", type = int, default = 33, help = "# packets equivalent to the Bandwidth-Delay Product.")
     parser.add_argument("--QUEUE_SIZE", type = int, default = 33, help = "Switch max queue size. Default: 1 * BDP. Overridden by DO_CC = no_cc_pfc or no_cc_unlimited.")
 
+    parser.add_argument("--ECN_RAP", type = float, default = 0.2, help = "Min queue size fraction to have nonzero probability to ECN tag a packet. (default: 0.2)")
     parser.add_argument("--ECN_LOW", type = int, default = int(33 * 0.2), help = "Min queue size to have nonzero probability to ECN tag a packet. (default: 20% BDP)")
     parser.add_argument("--ECN_HI", type = int, default = 33 - int(33 * 0.2), help = "Min queue size to have probability = 1 to ECN tag a packet. (default: 80% BDP)")
 
@@ -119,9 +120,10 @@ def get_default_ht(args):
 
     if args.DO_CC == "no_cc_pfc":
         ht["QUEUE_SIZE"] = (args.K + 1) * args.BDP_PKTS
-        ht["ECN"] = [ht["QUEUE_SIZE"], ht["QUEUE_SIZE"]]
+        ht["ECN"] = [int(args.ECN_RAP * ht["QUEUE_SIZE"]), int((1 - args.ECN_RAP) * ht["QUEUE_SIZE"])]
         ht["PFC"] = [args.PFC_OFF, args.PFC_ON]
         ht["RTO"] = args.DFP_RTT + ht["QUEUE_SIZE"] * args.DFP_MAX_HOPS
+        ht["CWND"] = "inf"
 
     return ht
 
@@ -162,16 +164,18 @@ def get_htsim_cmdlist(args, seed: int, tm_file: str, topo: str, logout_fname: st
     if topo:
         cmdlist.extend(["-topo_dfp_sparse", f"{topo}"])
 
+    if args.DO_CC in ["no_cc_unlimited", "no_cc_pfc"]:
+        with open(tm_file) as fin:
+            cnt_flows = len([i for i, line in enumerate(fin.readlines()) if i > 1 and len(line.strip()) > 0])
+        inf_queue_size = cnt_flows * (args.FLOW_SIZE // args.PKT_SIZE + 1) # = cnt_packets
+
     if args.DO_CC in ["sender", "receiver", "no_cc_unlimited"]:
         queue_size = args.QUEUE_SIZE
         ecn = (args.ECN_LOW, args.ECN_HI)
 
         if args.DO_CC == "no_cc_unlimited":
-            with open(tm_file) as fin:
-                cnt_flows = len([i for i, line in enumerate(fin.readlines()) if i > 1 and len(line.strip()) > 0])
-            queue_size = cnt_flows * args.FLOW_SIZE // args.PKT_SIZE + 1 # = cnt_packets
+            queue_size = inf_queue_size
             ecn = (queue_size, queue_size)
-
             cmdlist.extend(["-cwnd", f"{queue_size}"])
 
         cmdlist.extend([
@@ -179,19 +183,23 @@ def get_htsim_cmdlist(args, seed: int, tm_file: str, topo: str, logout_fname: st
             "-ecn", f"{ecn[0]}", f"{ecn[1]}",
             "-sender_cc_only" if args.DO_CC == "sender" else ("-receiver_cc_only" if args.DO_CC == "receiver" else "-no_cc"),
             "-strat", "ecmp_all",
-            # "-ar_method", "queue"
+            # "-ar_method", "queue",
         ])
     else: # do_cc == "no_cc_pfc"
         queue_size = (args.K + 1) * args.BDP_PKTS
         cmdlist.extend([
             "-q", f"{queue_size}",
-            "-ecn", f"{queue_size}", f"{queue_size}",
+            "-ecn", f"{int(args.ECN_RAP * queue_size)}", f"{int((1 - args.ECN_RAP) * queue_size)}",
+            # "-ecn", f"{queue_size}", f"{queue_size}",
             "-no_cc",
             "-pfc", f"{args.PFC_OFF}", f"{args.PFC_ON}",
             "-rto", f"{args.DFP_RTT + queue_size * args.DFP_MAX_HOPS}",
             "-strat", "ecmp_ar",
-            "-ar_method", "pqb"
+            # "-ar_method", "pqb",
+            "-cwnd", f"{inf_queue_size}"
         ])
+
+    print(f"{cmdlist = }")
 
     return cmdlist
 
