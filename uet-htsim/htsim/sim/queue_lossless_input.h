@@ -15,6 +15,8 @@
 #include "switch.h"
 #include "callback_pipe.h"
 
+#define VCs 3
+
 class Switch;
 
 class LosslessInputQueue : public Queue, public VirtualQueue {
@@ -25,7 +27,7 @@ public:
 
     virtual void receivePacket(Packet& pkt);
 
-    void sendPause(unsigned int wait);
+    void sendPause(unsigned int wait, int vc);
     virtual void completedService(Packet& pkt);
 
     virtual void setName(const string& name) {
@@ -40,7 +42,8 @@ public:
     static uint64_t _high_threshold;
 
 private:
-    int _state_recv;
+    int _vc_state[VCs] = {READY, READY, READY};
+    mem_b _vc_quesize[VCs] = {0};
     CallbackPipe* _wire;
 };
 

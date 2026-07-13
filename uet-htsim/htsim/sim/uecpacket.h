@@ -44,7 +44,7 @@ public:
     inline static UecDataPacket* newpkt(PacketFlow &flow, const Route& route, 
                                          seq_t epsn, mem_b full_size, 
                                          PacketType pkttype, pull_quanta pull_target, 
-                                         uint32_t destination = UINT32_MAX) {
+                                         uint32_t source = UINT32_MAX, uint32_t destination = UINT32_MAX) {
         UecDataPacket* p = _packetdb.allocPacket();
         p->set_route(flow, route, full_size, epsn);  // also sets size and seqno
         p->_type = UECDATA;
@@ -62,11 +62,16 @@ public:
         
         p->_ar = false;
         p->set_dst(destination);
+        p->set_src(source);
 
         p->_direction = NONE;
         p->_path_len = route.size();
         p->_trim_hop = {};
         p->_trim_direction = NONE;
+
+        p->_vc = 0;
+        p->_prev_vc = 0;
+        p->_justChangedVC = false;
 
         return p;
     }
@@ -142,7 +147,7 @@ protected:
 class UecPullPacket : public UecBasePacket {
     using Packet::set_route;
 public:
-    inline static UecPullPacket* newpkt(PacketFlow& flow, const route_t* route, pull_quanta pullno, uint16_t ev,uint32_t destination = UINT32_MAX) {
+    inline static UecPullPacket* newpkt(PacketFlow& flow, const route_t* route, pull_quanta pullno, uint16_t ev, uint32_t source = UINT32_MAX, uint32_t destination = UINT32_MAX) {
         UecPullPacket* p = _packetdb.allocPacket();
         p->set_attrs(flow, ACKSIZE, 0);
         if (route) {
@@ -157,6 +162,7 @@ public:
         p->_pullno = pullno;
         p->_path_len = 0;
         p->set_dst(destination);
+        p->set_src(source);
         p->_direction = NONE;
 
         p->_eqsrcid = 0;
@@ -164,6 +170,11 @@ public:
         p->_pathid = ev;
         //p->_rnr = rnr;
         p->_slow_pull = false;
+
+        p->_vc = 2;
+        p->_prev_vc = 2;
+        p->_justChangedVC = false;
+
         return p;
     }    
 
@@ -192,7 +203,7 @@ public:
     inline static UecAckPacket* newpkt(PacketFlow &flow, const Route *route, 
                                         seq_t cumulative_ack, seq_t ref_ack, seq_t acked_psn,/*pull_quanta pullno,*/
                                         uint16_t path_id, bool ecn_marked, uint64_t recv_bytes, uint8_t rcv_wnd_pen,
-                                        uint32_t destination = UINT32_MAX) {
+                                        uint32_t source = UINT32_MAX, uint32_t destination = UINT32_MAX) {
         UecAckPacket* p = _packetdb.allocPacket();
         p->set_attrs(flow, ACKSIZE, 0);
         if (route) {
@@ -215,9 +226,14 @@ public:
         p->_sack_bitmap = 0;
         p->_ecn_echo = ecn_marked;
         p->set_dst(destination);
+        p->set_src(source);
 
         p->_recvd_bytes = recv_bytes;
         p->_rcv_cwnd_pen = rcv_wnd_pen;
+
+        p->_vc = 2;
+        p->_prev_vc = 2;
+        p->_justChangedVC = false;
         return p;
     }
   
@@ -277,7 +293,7 @@ public:
     inline static UecNackPacket* newpkt(PacketFlow &flow, const Route *route, 
                                          seq_t ref_epsn, /*pull_quanta pullno, */
                                          uint16_t path_id,uint64_t recv_bytes, uint64_t tbytes,
-                                         uint32_t destination = UINT32_MAX) {
+                                         uint32_t source = UINT32_MAX, uint32_t destination = UINT32_MAX) {
         UecNackPacket* p = _packetdb.allocPacket();
         p->set_attrs(flow, ACKSIZE, ref_epsn);
         if (route) {
@@ -299,11 +315,15 @@ public:
         p->_direction = NONE;
         p->_path_len = 0;
         p->set_dst(destination);
+        p->set_src(source);
 
         p->_recvd_bytes = recv_bytes;
         p->_target_bytes = tbytes;
         p->_last_hop = false;
 
+        p->_vc = 2;
+        p->_prev_vc = 2;
+        p->_justChangedVC = false;
         return p;
     }
   
@@ -338,7 +358,7 @@ protected:
 class UecRtsPacket : public UecDataPacket {
     using Packet::set_route;
 public:    
-    inline static UecRtsPacket* newpkt(PacketFlow& flow, const Route* route, seq_t epsn, pull_quanta pull_target, uint32_t destination = UINT32_MAX) {
+    inline static UecRtsPacket* newpkt(PacketFlow& flow, const Route* route, seq_t epsn, pull_quanta pull_target, uint32_t source = UINT32_MAX, uint32_t destination = UINT32_MAX) {
         UecRtsPacket* p = _packetdb.allocPacket();
         //p->set_route(flow,route,ACKSIZE,0);
         p->set_attrs(flow, ACKSIZE, 0);
@@ -355,6 +375,11 @@ public:
 
         p->_ar = true; //always request ack.
         p->set_dst(destination);
+        p->set_src(source);
+
+        p->_vc = 2;
+        p->_prev_vc = 2;
+        p->_justChangedVC = false;
         return p;
     }
     

@@ -6,9 +6,10 @@
  * A composite queue that transforms packets into headers when there is no space and services headers with priority. 
  */
 
-#define QUEUE_INVALID 0
-#define QUEUE_LOW 1
-#define QUEUE_HIGH 2
+#define QUEUE_INVALID_VC -1
+#define QUEUE_LOW_VC_0 0
+#define QUEUE_LOW_VC_1 1
+#define QUEUE_HIGH     2
 
 
 #include <list>
@@ -18,6 +19,9 @@
 #include "network.h"
 #include "eth_pause_packet.h"
 #include "loggertypes.h"
+
+#define VCs 3
+#define QUEUE_HIGH 2
 
 class CompositeQueue : public Queue {
  public:
@@ -30,8 +34,8 @@ class CompositeQueue : public Queue {
     enum queue_state {PAUSED,READY,PAUSE_RECEIVED};
 
     // should really be private, but loggers want to see
-    mem_b _queuesize_low,_queuesize_high;
-    queue_state _state_low, _state_high;
+    mem_b _queuesize[VCs] = {0};
+    queue_state _states[VCs] = {READY, READY, READY};
     int num_headers() const { return _num_headers;}
     int num_packets() const { return _num_packets;}
     int num_stripped() const { return _num_stripped;}
@@ -60,7 +64,12 @@ class CompositeQueue : public Queue {
             cout << "queue_id " << _queue_id << " ecn_low " << _ecn_minthresh << " ecn_high " << _ecn_maxthresh << endl;
     }
 
-    bool is_paused() { return _state_low == PAUSED || _state_low == PAUSE_RECEIVED; };
+    bool is_paused(int pkt_tc = 0) { return _states[pkt_tc] == PAUSED || _states[pkt_tc] == PAUSE_RECEIVED;}
+
+    void log_packet_send(simtime_picosec duration, int pkt_vc);
+    uint16_t average_utilization(int pkt_vc);
+    uint8_t quantized_utilization(int pkt_vc);
+    uint64_t quantized_queuesize(int pkt_vc);
 
     int _num_packets;
     int _num_headers; // only includes data packets stripped to headers, not acks or nacks
@@ -82,7 +91,8 @@ class CompositeQueue : public Queue {
     bool _disable_trim;
 
     int _serv;
-    int _ratio_high, _ratio_low, _crt;
+    int _ratios[VCs];
+    int _crts[VCs] = {0};
     // below minthresh, 0% marking, between minthresh and maxthresh
     // increasing random mark propbability, abve maxthresh, 100%
     // marking.
@@ -93,9 +103,16 @@ class CompositeQueue : public Queue {
 
     bool _return_to_sender;
 
+    CircularBuffer<simtime_picosec> _vc_busystart[VCs];
+    CircularBuffer<simtime_picosec> _vc_busyend[VCs];
+    simtime_picosec _vc_busy[VCs] = {0};
+    simtime_picosec _vc_last_update_qs[VCs] = {0};
+    simtime_picosec _vc_last_update_utilization[VCs] = {0};
+    uint8_t _vc_last_utilization[VCs] = {0};
+    uint8_t _vc_last_qs[VCs] = {0};
+
     int _queue_id;
-    CircularBuffer<Packet*> _enqueued_low;
-    CircularBuffer<Packet*> _enqueued_high;
+    CircularBuffer<Packet*> _queues[VCs];
 };
 
 #endif

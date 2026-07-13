@@ -15,28 +15,34 @@ public:
 
     DragonFlyPlusSwitch(EventList& eventlist, string s, switch_type t, uint32_t id,simtime_picosec switch_delay, DragonFlyPlusTopology* dfp);
   
-    static int8_t compare_queuesize_dense(FibEntry* left, FibEntry* right);
-    static int8_t compare_queuesize_sparse(FibEntry* left, FibEntry* right);
-    static int8_t compare_pause(FibEntry* l, FibEntry* r);
-    static int8_t compare_bandwidth(FibEntry* l, FibEntry* r);
-    static int8_t compare_queuesize(FibEntry* l, FibEntry* r);
-    static int8_t compare_pqb(FibEntry* l, FibEntry* r);//compare pause,queue, bw.
-    static int8_t compare_pq(FibEntry* l, FibEntry* r);//compare pause, queue
-    static int8_t compare_pb(FibEntry* l, FibEntry* r);//compare pause, bandwidth
-    static int8_t compare_qb(FibEntry* l, FibEntry* r);//compare pause, bandwidth
+    static int8_t (*fn)(FibEntry*,FibEntry*,int);
+    static int8_t compare_flow_count(FibEntry* left, FibEntry* right, int pkt_vc);
+    static int8_t compare_queuesize_dense(FibEntry* left, FibEntry* right, int pkt_vc);
+    static int8_t compare_queuesize_sparse(FibEntry* left, FibEntry* right, int pkt_vc);
+    static int8_t compare_pause(FibEntry* l, FibEntry* r, int pkt_vc);
+    static int8_t compare_bandwidth(FibEntry* l, FibEntry* r, int pkt_vc);
+    static int8_t compare_queuesize(FibEntry* l, FibEntry* r, int pkt_vc);
+    static int8_t compare_pqb(FibEntry* l, FibEntry* r, int pkt_vc);//compare pause,queue, bw.
+    static int8_t compare_pq(FibEntry* l, FibEntry* r, int pkt_vc);//compare pause, queue
+    static int8_t compare_pb(FibEntry* l, FibEntry* r, int pkt_vc);//compare pause, bandwidth
+    static int8_t compare_qb(FibEntry* l, FibEntry* r, int pkt_vc);//compare pause, bandwidth
     virtual void receivePacket(Packet& pkt);
     virtual Route* getNextHop(Packet& pkt, BaseQueue* ingress_port);
     virtual uint32_t getType() {return _type;}
 
-    uint32_t adaptive_route(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*));
-    uint32_t replace_worst_choice(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*),uint32_t my_choice);
-    uint32_t adaptive_route_p2c(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*));
+    static bool ALLOW_VCs;
+
+    uint32_t adaptive_route(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*,int));
+    uint32_t replace_worst_choice(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*,int),uint32_t my_choice);
+    uint32_t adaptive_route_p2c(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*,int));
 
     virtual void addHostPort(int addr, int flowid, PacketSink* transport_port);
 
     virtual void permute_paths(vector<FibEntry*>* uproutes);
 
 private:
+
+    int _pkt_vc = 0;
     switch_type _type;
     Pipe* _pipe;
     DragonFlyPlusTopology* _dfp;
@@ -56,4 +62,3 @@ private:
 };
 
 #endif
-    

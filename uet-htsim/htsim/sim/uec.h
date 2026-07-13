@@ -156,6 +156,8 @@ public:
     void timeToSend(const Route& route);
     void receivePacket(Packet& pkt, uint32_t portnum);
     void doNextEvent();
+    uint32_t src() { return _srcaddr; }
+    void setSrc(uint32_t src) { _srcaddr = src; }
     uint32_t dst() { return _dstaddr; }
     void setDst(uint32_t dst) { _dstaddr = dst; }
 
@@ -447,6 +449,7 @@ private:
     string _nodename;
     int _node_num;
     uint32_t _dstaddr;
+    uint32_t _srcaddr;
 };
 
 // Packets are received on ports, but then passed to the Sink for handling
@@ -529,7 +532,10 @@ class UecSink : public DataReceiver {
     void connectPort(uint32_t port_num, UecSrc& src, const Route& routeback);
     const Route* getPortRoute(uint32_t port_num) const {return _ports[port_num]->route();}
     UecSinkPort* getPort(uint32_t port_num) {return _ports[port_num];}
-    void setSrc(uint32_t s) { _srcaddr = s; }
+    uint32_t src() { return _srcaddr; }
+    void setSrc(uint32_t src) { _srcaddr = src; }
+    uint32_t dst() { return _dstaddr; }
+    void setDst(uint32_t dst) { _dstaddr = dst; }
     inline void setFlowId(flowid_t flow_id) { _flow.set_flowid(flow_id); }
 
     inline bool inPullQueue() const { return _in_pull; }
@@ -574,6 +580,7 @@ class UecSink : public DataReceiver {
     uint32_t _no_of_ports;
     vector <UecSinkPort*> _ports;
     uint32_t _srcaddr;
+    uint32_t _dstaddr;
     UecNIC& _nic;
     UecSrc* _src;
     PacketFlow _flow;
@@ -656,3 +663,4 @@ class UecPullPacer : public EventSource {
 };
 
 #endif  // UEC_H
+

@@ -499,54 +499,57 @@ int main(int argc, char **argv) {
                 exit(1);
             }   
             i++;
+        } else if (!strcmp(argv[i],"-vcs")) {
+            DragonFlyPlusSwitch::ALLOW_VCs = true;
+            cout << "Enabled VCs on switches" << endl;
         } else if (!strcmp(argv[i],"-ar_method")){
             if (!strcmp(argv[i+1],"pause")){
                 cout << "Adaptive routing based on pause state " << endl;
-                Switch::fn = &Switch::compare_pause;
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pause;
                 if (topo_type == DFP_SPARSE_T) {
-                    Switch::fn = &DragonFlyPlusSwitch::compare_pause;
+                    DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pause;
                 }
             }
             else if (!strcmp(argv[i+1],"queue")){
                 cout << "Adaptive routing based on queue size " << endl;
-                Switch::fn = &Switch::compare_queuesize;
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_queuesize;
                 if (topo_type == DFP_SPARSE_T) {
-                    Switch::fn = &DragonFlyPlusSwitch::compare_queuesize;
+                    DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_queuesize;
                 }
             }
             else if (!strcmp(argv[i+1],"bandwidth")){
                 cout << "Adaptive routing based on bandwidth utilization " << endl;
-                Switch::fn = &Switch::compare_bandwidth;
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_bandwidth;
                 if (topo_type == DFP_SPARSE_T) {
-                    Switch::fn = &DragonFlyPlusSwitch::compare_bandwidth;
+                    DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_bandwidth;
                 }
             }
             else if (!strcmp(argv[i+1],"pqb")){
                 cout << "Adaptive routing based on pause, queuesize and bandwidth utilization " << endl;
-                Switch::fn = &Switch::compare_pqb;
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pqb;
                 if (topo_type == DFP_SPARSE_T) {
-                    Switch::fn = &DragonFlyPlusSwitch::compare_pqb;
+                    DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pqb;
                 }
             }
             else if (!strcmp(argv[i+1],"pq")){
                 cout << "Adaptive routing based on pause, queuesize" << endl;
-                Switch::fn = &Switch::compare_pq;
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pq;
                 if (topo_type == DFP_SPARSE_T) {
-                    Switch::fn = &DragonFlyPlusSwitch::compare_pq;
+                    DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pq;
                 }
             }
             else if (!strcmp(argv[i+1],"pb")){
                 cout << "Adaptive routing based on pause, bandwidth utilization" << endl;
-                Switch::fn = &Switch::compare_pb;
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pb;
                 if (topo_type == DFP_SPARSE_T) {
-                    Switch::fn = &DragonFlyPlusSwitch::compare_pb;
+                    DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_pb;
                 }
             }
             else if (!strcmp(argv[i+1],"qb")){
                 cout << "Adaptive routing based on queuesize, bandwidth utilization" << endl;
-                Switch::fn = &Switch::compare_qb;
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_qb;
                 if (topo_type == DFP_SPARSE_T) {
-                    Switch::fn = &DragonFlyPlusSwitch::compare_qb;
+                    DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_qb;
                 }
             }
             else {
@@ -834,10 +837,12 @@ int main(int argc, char **argv) {
                 topo[p]->add_switch_loggers(logfile, logtime);
             }
         } else if (topo_type == DFP_DENSE_T || topo_type == DFP_SPARSE_T) {
-            if (topo_type == DFP_DENSE_T && Switch::fn == &Switch::compare_queuesize)
-                Switch::fn = &DragonFlyPlusSwitch::compare_queuesize_dense;
-            else if (topo_type == DFP_SPARSE_T && Switch::fn == &Switch::compare_queuesize)
-                Switch::fn = &DragonFlyPlusSwitch::compare_queuesize_sparse;
+            if (topo_type == DFP_DENSE_T && DragonFlyPlusSwitch::fn == &DragonFlyPlusSwitch::compare_queuesize)
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_queuesize_dense;
+
+            else if (topo_type == DFP_SPARSE_T && DragonFlyPlusSwitch::fn == &DragonFlyPlusSwitch::compare_queuesize)
+                DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_queuesize_sparse;
+
             topo[p] = make_unique<DragonFlyPlusTopology>(radix, linkspeed, queuesize, qlf, &eventlist, qt, hop_latency, switch_latency, topo_type, topo_dfp_sparse_file);
             ///NOTE aici se apeleaza constrctorul tau.
 
@@ -1049,6 +1054,7 @@ int main(int argc, char **argv) {
 
             uec_srcs.push_back(uec_src);
             uec_src->setDst(dest);
+            uec_src->setSrc(src);
 
             if (log_flow_events) {
                 uec_src->logFlowEvents(*event_logger);
@@ -1058,6 +1064,7 @@ int main(int argc, char **argv) {
             uec_src->setName("Uec_" + ntoa(src) + "_" + ntoa(dest));
             logfile.writeName(*uec_src);
             uec_snk->setSrc(src);
+            uec_snk->setDst(dest);
 
             if (UecSink::_model_pcie){
                 uec_snk->setPCIeModel(pcie_models[dest]);

@@ -10,7 +10,10 @@
 #include "compositequeue.h"
 
 
-DragonFlyPlusSwitch::DragonFlyPlusSwitch(EventList& eventlist, string s, switch_type t, uint32_t id,simtime_picosec delay, DragonFlyPlusTopology* dfp):
+int8_t (*DragonFlyPlusSwitch::fn)(FibEntry*,FibEntry*,int) = &DragonFlyPlusSwitch::compare_queuesize;
+bool DragonFlyPlusSwitch::ALLOW_VCs = false;
+
+DragonFlyPlusSwitch::DragonFlyPlusSwitch(EventList& eventlist, string s, switch_type t, uint32_t id, simtime_picosec delay, DragonFlyPlusTopology* dfp):
     Switch(eventlist, s), _topo_dfp_sparse_cfg(dfp->get_sparse_cfg_reference())
 {
     _id = id;
@@ -26,13 +29,15 @@ DragonFlyPlusSwitch::DragonFlyPlusSwitch(EventList& eventlist, string s, switch_
     ///clasa apelata o data pentru fiecare switch din topologie.
 }
 
-int8_t DragonFlyPlusSwitch::compare_queuesize_dense(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_queuesize_dense(FibEntry* left, FibEntry* right, int pkt_vc){
     Route * r1= left->getEgressPort();
     assert(r1 && r1->size()>1);
-    BaseQueue* q1 = dynamic_cast<BaseQueue*>(r1->at(0));
+
     Route * r2= right->getEgressPort();
     assert(r2 && r2->size()>1);
-    BaseQueue* q2 = dynamic_cast<BaseQueue*>(r2->at(0));
+
+    CompositeQueue* q1 = dynamic_cast<CompositeQueue*>(r1->at(0));
+    CompositeQueue* q2 = dynamic_cast<CompositeQueue*>(r2->at(0));
 
     // Changed this so, for the case where we would use qs for topologies with non minimal paths
     // We want to use non minimal paths only if the minimal path has over 0.2 * max_q_size
@@ -56,73 +61,117 @@ int8_t DragonFlyPlusSwitch::compare_queuesize_dense(FibEntry* left, FibEntry* ri
     // 2 + 3 * 3 = 11
     // 9 + 3 * 3 = 18
     //
-    if (q1->quantized_queuesize() + 3 * left->getCost() < q2->quantized_queuesize() + 3 * right->getCost())
+    if (q1->quantized_queuesize(pkt_vc) + 3 * left->getCost() < q2->quantized_queuesize(pkt_vc) + 3 * right->getCost())
         return 1;
-    else if (q1->quantized_queuesize() + 3 * left->getCost() > q2->quantized_queuesize() + 3 * right->getCost())
+    else if (q1->quantized_queuesize(pkt_vc) + 3 * left->getCost() > q2->quantized_queuesize(pkt_vc) + 3 * right->getCost())
         return -1;
     else 
         return 0;
 }
 
-int8_t DragonFlyPlusSwitch::compare_queuesize_sparse(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_queuesize_sparse(FibEntry* left, FibEntry* right, int pkt_vc){
     Route * r1= left->getEgressPort();
     assert(r1 && r1->size()>1);
-    BaseQueue* q1 = dynamic_cast<BaseQueue*>(r1->at(0));
+
     Route * r2= right->getEgressPort();
     assert(r2 && r2->size()>1);
-    BaseQueue* q2 = dynamic_cast<BaseQueue*>(r2->at(0));
 
-    if (q1->quantized_queuesize() < q2->quantized_queuesize())
-        return 1;
-    else if (q1->quantized_queuesize() > q2->quantized_queuesize())
-        return -1;
-    else 
-        return 0;
-}
-
-int8_t DragonFlyPlusSwitch::compare_pause(FibEntry* left, FibEntry* right){
-    Route * r1= left->getEgressPort();
-    assert(r1 && r1->size()>1);
     CompositeQueue* q1 = dynamic_cast<CompositeQueue*>(r1->at(0));
-    Route * r2= right->getEgressPort();
-    assert(r2 && r2->size()>1);
     CompositeQueue* q2 = dynamic_cast<CompositeQueue*>(r2->at(0));
 
-    if (!q1->is_paused()&&q2->is_paused())
+    if (q1->quantized_queuesize(pkt_vc) < q2->quantized_queuesize(pkt_vc))
         return 1;
-    else if (q1->is_paused()&&!q2->is_paused())
+    else if (q1->quantized_queuesize(pkt_vc) > q2->quantized_queuesize(pkt_vc))
         return -1;
     else 
         return 0;
 }
 
-int8_t DragonFlyPlusSwitch::compare_queuesize(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_flow_count(FibEntry* left, FibEntry* right, int pkt_tc){
+    ///FIXME: new compare fn.
+
     Route * r1= left->getEgressPort();
     assert(r1 && r1->size()>1);
-    BaseQueue* q1 = dynamic_cast<BaseQueue*>(r1->at(0));
+
     Route * r2= right->getEgressPort();
     assert(r2 && r2->size()>1);
-    BaseQueue* q2 = dynamic_cast<BaseQueue*>(r2->at(0));
+    
+    ///FIXME: in codul nou inca erau BaseQueue *.
+    // BaseQueue* q1 = (BaseQueue*)(r1->at(0));
+    // BaseQueue* q2 = (BaseQueue*)(r2->at(0));
+    CompositeQueue* q1 = dynamic_cast<CompositeQueue*>(r1->at(0));
+    CompositeQueue* q2 = dynamic_cast<CompositeQueue*>(r2->at(0));
 
-    if (q1->quantized_queuesize() < q2->quantized_queuesize())
+    if (_port_flow_counts.find(q1)==_port_flow_counts.end())
+        _port_flow_counts[q1] = 0;
+
+    if (_port_flow_counts.find(q2)==_port_flow_counts.end())
+        _port_flow_counts[q2] = 0;
+
+    //cout << "CMP q1 " << q1 << "=" << _port_flow_counts[q1] << " q2 " << q2 << "=" << _port_flow_counts[q2] << endl;
+
+    if (_port_flow_counts[q1] < _port_flow_counts[q2])
         return 1;
-    else if (q1->quantized_queuesize() > q2->quantized_queuesize())
+    else if (_port_flow_counts[q1] > _port_flow_counts[q2] )
+        return -1;
+    else
+        return 0;
+}
+
+int8_t DragonFlyPlusSwitch::compare_pause(FibEntry* left, FibEntry* right, int pkt_vc){
+    Route * r1= left->getEgressPort();
+    assert(r1 && r1->size()>1);
+
+    Route * r2= right->getEgressPort();
+    assert(r2 && r2->size()>1);
+
+    CompositeQueue* q1 = dynamic_cast<CompositeQueue*>(r1->at(0));
+    CompositeQueue* q2 = dynamic_cast<CompositeQueue*>(r2->at(0));
+
+    if (!q1->is_paused(pkt_vc) && q2->is_paused(pkt_vc))
+        return 1;
+    else if (q1->is_paused(pkt_vc) && !q2->is_paused(pkt_vc))
         return -1;
     else 
         return 0;
 }
 
-int8_t DragonFlyPlusSwitch::compare_bandwidth(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_queuesize(FibEntry* left, FibEntry* right, int pkt_vc){
     Route * r1= left->getEgressPort();
     assert(r1 && r1->size()>1);
-    BaseQueue* q1 = dynamic_cast<BaseQueue*>(r1->at(0));
+
     Route * r2= right->getEgressPort();
     assert(r2 && r2->size()>1);
-    BaseQueue* q2 = dynamic_cast<BaseQueue*>(r2->at(0));
 
-    if (q1->quantized_utilization() < q2->quantized_utilization())
+    CompositeQueue* q1 = dynamic_cast<CompositeQueue*>(r1->at(0));
+    CompositeQueue* q2 = dynamic_cast<CompositeQueue*>(r2->at(0));
+
+    int left_vc = pkt_vc;
+    int right_vc = pkt_vc;
+
+    if (q1->quantized_queuesize(left_vc) < q2->quantized_queuesize(right_vc))
         return 1;
-    else if (q1->quantized_utilization() > q2->quantized_utilization())
+    else if (q1->quantized_queuesize(left_vc) > q2->quantized_queuesize(right_vc))
+        return -1;
+    else 
+        return 0;
+}
+
+
+
+int8_t DragonFlyPlusSwitch::compare_bandwidth(FibEntry* left, FibEntry* right, int pkt_vc){
+    Route * r1= left->getEgressPort();
+    assert(r1 && r1->size()>1);
+
+    Route * r2= right->getEgressPort();
+    assert(r2 && r2->size()>1);
+
+    CompositeQueue* q1 = dynamic_cast<CompositeQueue*>(r1->at(0));
+    CompositeQueue* q2 = dynamic_cast<CompositeQueue*>(r2->at(0));
+
+    if (q1->quantized_utilization(pkt_vc) < q2->quantized_utilization(pkt_vc))
+        return 1;
+    else if (q1->quantized_utilization(pkt_vc) > q2->quantized_utilization(pkt_vc))
         return -1;
     else 
         return 0;
@@ -135,49 +184,49 @@ int8_t DragonFlyPlusSwitch::compare_bandwidth(FibEntry* left, FibEntry* right){
         return 0;        */
 }
 
-int8_t DragonFlyPlusSwitch::compare_pqb(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_pqb(FibEntry* left, FibEntry* right, int pkt_vc){
     //compare pause, queuesize, bandwidth.
-    int8_t p = compare_pause(left, right);
+    int8_t p = compare_pause(left, right, pkt_vc);
 
     if (p!=0)
         return p;
     
-    p = compare_queuesize(left,right);
+    p = compare_queuesize(left, right, pkt_vc);
 
     if (p!=0)
         return p;
 
-    return compare_bandwidth(left,right);
+    return compare_bandwidth(left, right, pkt_vc);
 }
 
-int8_t DragonFlyPlusSwitch::compare_pq(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_pq(FibEntry* left, FibEntry* right, int pkt_vc){
     //compare pause, queuesize, bandwidth.
-    int8_t p = compare_pause(left, right);
+    int8_t p = compare_pause(left, right, pkt_vc);
 
     if (p!=0)
         return p;
     
-    return compare_queuesize(left,right);
+    return compare_queuesize(left, right, pkt_vc);
 }
 
-int8_t DragonFlyPlusSwitch::compare_qb(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_qb(FibEntry* left, FibEntry* right, int pkt_vc){
     //compare pause, queuesize, bandwidth.
-    int8_t p = compare_queuesize(left, right);
+    int8_t p = compare_queuesize(left, right, pkt_vc);
 
     if (p!=0)
         return p;
     
-    return compare_bandwidth(left,right);
+    return compare_bandwidth(left, right, pkt_vc);
 }
 
-int8_t DragonFlyPlusSwitch::compare_pb(FibEntry* left, FibEntry* right){
+int8_t DragonFlyPlusSwitch::compare_pb(FibEntry* left, FibEntry* right, int pkt_vc){
     //compare pause, queuesize, bandwidth.
-    int8_t p = compare_pause(left, right);
+    int8_t p = compare_pause(left, right, pkt_vc);
 
     if (p!=0)
         return p;
     
-    return compare_bandwidth(left,right);
+    return compare_bandwidth(left, right, pkt_vc);
 }
 
 void DragonFlyPlusSwitch::receivePacket(Packet& pkt){
@@ -225,7 +274,7 @@ void DragonFlyPlusSwitch::addHostPort(int addr, int flowid, PacketSink* transpor
     _fib->addHostRoute(addr,rt,flowid);
 }
 
-uint32_t DragonFlyPlusSwitch::adaptive_route_p2c(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*)){
+uint32_t DragonFlyPlusSwitch::adaptive_route_p2c(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*,int)){
     uint32_t choice = 0, min = UINT32_MAX;
     uint32_t start, i = 0;
     static const uint16_t nr_choices = 2;
@@ -246,7 +295,7 @@ uint32_t DragonFlyPlusSwitch::adaptive_route_p2c(vector<FibEntry*>* ecmp_set, in
     return choice;
 }
 
-uint32_t DragonFlyPlusSwitch::adaptive_route(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*)){
+uint32_t DragonFlyPlusSwitch::adaptive_route(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*,int)){
     //cout << "adaptive_route" << endl;
     uint32_t choice = 0;
 
@@ -257,7 +306,7 @@ uint32_t DragonFlyPlusSwitch::adaptive_route(vector<FibEntry*>* ecmp_set, int8_t
     best_choices[best_choices_count++] = choice;
 
     for (uint32_t i = 1; i< ecmp_set->size(); i++){
-        int8_t c = cmp(min,(*ecmp_set)[i]);
+        int8_t c = cmp(min,(*ecmp_set)[i],_pkt_vc);
 
         if (c < 0){
             choice = i;
@@ -286,7 +335,7 @@ uint32_t DragonFlyPlusSwitch::adaptive_route(vector<FibEntry*>* ecmp_set, int8_t
     return choice;
 }
 
-uint32_t DragonFlyPlusSwitch::replace_worst_choice(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*),uint32_t my_choice){
+uint32_t DragonFlyPlusSwitch::replace_worst_choice(vector<FibEntry*>* ecmp_set, int8_t (*cmp)(FibEntry*,FibEntry*,int),uint32_t my_choice){
     uint32_t best_choice = 0;
     uint32_t worst_choice = 0;
 
@@ -298,7 +347,7 @@ uint32_t DragonFlyPlusSwitch::replace_worst_choice(vector<FibEntry*>* ecmp_set, 
     best_choices[best_choices_count++] = best_choice;
 
     for (uint32_t i = 1; i< ecmp_set->size(); i++){
-        int8_t c = cmp(min,(*ecmp_set)[i]);
+        int8_t c = cmp(min,(*ecmp_set)[i], _pkt_vc);
 
         if (c < 0){
             best_choice = i;
@@ -311,14 +360,14 @@ uint32_t DragonFlyPlusSwitch::replace_worst_choice(vector<FibEntry*>* ecmp_set, 
             best_choices[best_choices_count++] = i;
         }        
 
-        if (cmp(max,(*ecmp_set)[i])>0){
+        if (cmp(max,(*ecmp_set)[i], _pkt_vc)>0){
             worst_choice = i;
             max = (*ecmp_set)[worst_choice];
         }
     }
 
     //might need to play with different alternatives here, compare to worst rather than just to worst index.
-    int8_t r = cmp((*ecmp_set)[my_choice],(*ecmp_set)[worst_choice]);
+    int8_t r = cmp((*ecmp_set)[my_choice],(*ecmp_set)[worst_choice], _pkt_vc);
     assert(r>=0);
 
     if (r==0){
@@ -340,6 +389,7 @@ void DragonFlyPlusSwitch::permute_paths(vector<FibEntry *>* uproutes) {
 
 Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
     vector<FibEntry*> *available_hops = _fib->getRoutes(pkt.dst());
+    _pkt_vc = pkt.vc();
 
     // cout << endl;
     // // cout << "Route: " << pkt.route() << endl;
@@ -517,7 +567,7 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
 
                         r->push_back(_dfp->pipes_leaf_spine[_id][src_spine]);
                         r->push_back(_dfp->queues_leaf_spine[_id][src_spine]->getRemoteEndpoint());
-                        _fib->addRoute(pkt.dst(), r, 1, UP);
+                        _fib->addRoute(pkt.dst(), r, 1, UP); // L-G-*L*-G-L
 
                         // L-G-G-L and L-G-L-G-L paths
                         for (uint32_t next_group_id = 0; next_group_id < _dfp->getNGroups(); next_group_id++) {
@@ -567,9 +617,9 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                             r->push_back(_dfp->queues_leaf_spine[_id][next_src_spine]->getRemoteEndpoint());
                             // cout << "src: " << src_spine << " next_src: " << next_src_spine << " nxt_1: " << next_spine_1 << " nxt_2: " << next_spine_2 << endl;
                             if (next_spine_1 == next_spine_2)
-                                _fib->addRoute(pkt.dst(), r, 2, UP);
+                                _fib->addRoute(pkt.dst(), r, 2, UP); // *L*-G-G-L
                             else
-                                _fib->addRoute(pkt.dst(), r, 3, UP);
+                                _fib->addRoute(pkt.dst(), r, 3, UP); // *L*-G-L-G-L
                         }
                     }
                 }
@@ -635,6 +685,7 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                             r->push_back(_dfp->pipes_spine_leaf[_id][leaf_id]);
                             r->push_back(_dfp->queues_spine_leaf[_id][leaf_id]->getRemoteEndpoint());
 
+                            // L-G-*L*-G-L
                             _fib->addRoute(pkt.dst(), r, 4, UP); // Marked as UP route, but in reality a downlink
                         }
                     }
@@ -685,9 +736,9 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                         r->push_back(_dfp->pipes_spine_spine[_id][next_spine_1]);
                         r->push_back(_dfp->queues_spine_spine[_id][next_spine_1]->getRemoteEndpoint());
                         if (next_spine_1 == next_spine_2)
-                            _fib->addRoute(pkt.dst(), r, 2, UP);
+                            _fib->addRoute(pkt.dst(), r, 2, UP); // L-*G*-G-L
                         else
-                            _fib->addRoute(pkt.dst(), r, 3, UP);
+                            _fib->addRoute(pkt.dst(), r, 3, UP); // L-*G*-L-G-L
                     }
                 }
             }
@@ -772,7 +823,7 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                     if (eventlist().now() - f->_last > _sticky_delta && /*eventlist().now() - _last_choice > _pipe->delay() + BaseQueue::_update_period  &&*/ random()%2==0){ 
                         //cout << "AR 1 " << timeAsUs(eventlist().now()) << endl;
                         uint32_t new_route = adaptive_route(available_hops,fn); 
-                        if (fn(available_hops->at(f->_egress),available_hops->at(new_route)) < 0){
+                        if (fn(available_hops->at(f->_egress),available_hops->at(new_route),_pkt_vc) < 0){
                             f->_egress = new_route;
                             _last_choice = eventlist().now();
                             //cout << "Switch " << _type << ":" << _id << " choosing new path "<<  f->_egress << " for " << pkt.flow_id() << " at " << timeAsUs(eventlist().now()) << " last is " << timeAsUs(f->_last) << endl;
@@ -841,6 +892,42 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
                 pkt.set_flags(pkt.flags() | AR_BIT_nmin_1);
             if (e->getCost() == 3)
                 pkt.set_flags(pkt.flags() | AR_BIT_nmin_3);
+        }
+    }
+
+    pkt._justChangedVC = false;
+    
+    if (ALLOW_VCs == true && pkt.vc() != QUEUE_HIGH) {
+        if (_type == SPINE) {
+        uint32_t src_group = _dfp->HOST_GROUP(pkt.src());
+        uint32_t target_group = _dfp->HOST_GROUP(pkt.dst());
+        uint32_t group_id = _dfp->SPINE_GROUP(_id);
+
+        // Intermediate SPINE that is going to use a global link (total route is min+1)
+        if (group_id != src_group && group_id != target_group && e->getCost() == 1) {
+            // cout << timeAsUs(eventlist().now())
+            //      << " " << nodename()
+            //      << " changed vc of pkt " << pkt.id()
+            //      << " flowId: " << pkt.flow_id()
+            //      << endl;
+            pkt.setVC(QUEUE_LOW_VC_1);
+            pkt._justChangedVC = true;
+        }
+        } else if (_type == LEAF) {
+            uint32_t src_group = _dfp->HOST_GROUP(pkt.src());
+            uint32_t target_group = _dfp->HOST_GROUP(pkt.dst());
+            uint32_t group_id = _dfp->LEAF_GROUP(_id);
+
+            // Intermediate LEAF
+            if (group_id != src_group && group_id != target_group) {
+                // cout << timeAsUs(eventlist().now())
+                //     << " " << nodename()
+                //     << " changed vc of pkt " << pkt.id()
+                //     << " flowId: " << pkt.flow_id()
+                //     << endl;
+                pkt.setVC(QUEUE_LOW_VC_1);
+                pkt._justChangedVC = true;
+            }
         }
     }
 

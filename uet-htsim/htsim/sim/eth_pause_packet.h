@@ -17,13 +17,16 @@ class EthPausePacket : public Packet {
  public:
     //do not implement PFC; one priority class alone
 
-    inline static EthPausePacket* newpkt(uint32_t sleep, uint32_t senderid){
+    inline static EthPausePacket* newpkt(uint32_t sleep, uint32_t senderid, int vc = 0){
         EthPausePacket* p = _packetdb.allocPacket();
         p->_type = ETH_PAUSE;
         p->_sleepTime = sleep;
         p->_senderID = senderid;
         p->_size = PAUSESIZE;
         p->_flow = &(Packet::_defaultFlow);
+        p->_vc = vc;
+        p->_prev_vc = vc;
+        p->_justChangedVC = false;
         return p;
     }
   
