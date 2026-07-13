@@ -85,7 +85,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--HT_FCT_KEEP", type = str, default = "mean",
         choices = ["mean", "all"],
-        help = "(specific to full_incast.py) how to keep FCTs, mean over "
+        help = "(specific to full_incast.py) how to keep FCTs, mean over all measurements"
     )
 
     args = parser.parse_args()

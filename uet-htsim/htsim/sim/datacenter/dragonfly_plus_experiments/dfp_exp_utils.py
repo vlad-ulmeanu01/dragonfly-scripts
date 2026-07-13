@@ -195,6 +195,7 @@ def get_htsim_cmdlist(args, seed: int, tm_file: str, topo: str, logout_fname: st
             "-pfc", f"{args.PFC_OFF}", f"{args.PFC_ON}",
             "-rto", f"{args.DFP_RTT + queue_size * args.DFP_MAX_HOPS}",
             "-strat", "ecmp_ar",
+            "-vcs", # enable virtual circuits. should prevent deadlock loops.
             # "-ar_method", "pqb",
             "-cwnd", f"{inf_queue_size}"
         ])

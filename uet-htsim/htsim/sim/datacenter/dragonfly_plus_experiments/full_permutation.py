@@ -71,6 +71,6 @@ if __name__ == "__main__":
     # other specific arg edits..
     args.PERM_TM_FOLDER = os.path.join(du.ROOT, f"uet-htsim/htsim/sim/datacenter/dragonfly_plus_connection_matrices/SPARSE/full_permutations/k_{args.K}")
 
-    assert args.DO_CC != "no_cc_pfc", "DO_CC = no_cc_pfc not allowed for full_permutation"
+    # assert args.DO_CC != "no_cc_pfc", "DO_CC = no_cc_pfc not allowed for full_permutation"
 
     main(args)
