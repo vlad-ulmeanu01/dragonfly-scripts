@@ -899,20 +899,20 @@ Route* DragonFlyPlusSwitch::getNextHop(Packet& pkt, BaseQueue* ingress_port){
     
     if (ALLOW_VCs == true && pkt.vc() != QUEUE_HIGH) {
         if (_type == SPINE) {
-        uint32_t src_group = _dfp->HOST_GROUP(pkt.src());
-        uint32_t target_group = _dfp->HOST_GROUP(pkt.dst());
-        uint32_t group_id = _dfp->SPINE_GROUP(_id);
+            uint32_t src_group = _dfp->HOST_GROUP(pkt.src());
+            uint32_t target_group = _dfp->HOST_GROUP(pkt.dst());
+            uint32_t group_id = _dfp->SPINE_GROUP(_id);
 
-        // Intermediate SPINE that is going to use a global link (total route is min+1)
-        if (group_id != src_group && group_id != target_group && e->getCost() == 1) {
-            // cout << timeAsUs(eventlist().now())
-            //      << " " << nodename()
-            //      << " changed vc of pkt " << pkt.id()
-            //      << " flowId: " << pkt.flow_id()
-            //      << endl;
-            pkt.setVC(QUEUE_LOW_VC_1);
-            pkt._justChangedVC = true;
-        }
+            // Intermediate SPINE that is going to use a global link (total route is min+1)
+            if (group_id != src_group && group_id != target_group && e->getCost() == 1) {
+                // cout << timeAsUs(eventlist().now())
+                //      << " " << nodename()
+                //      << " changed vc of pkt " << pkt.id()
+                //      << " flowId: " << pkt.flow_id()
+                //      << endl;
+                pkt.setVC(QUEUE_LOW_VC_1);
+                pkt._justChangedVC = true;
+            }
         } else if (_type == LEAF) {
             uint32_t src_group = _dfp->HOST_GROUP(pkt.src());
             uint32_t target_group = _dfp->HOST_GROUP(pkt.dst());

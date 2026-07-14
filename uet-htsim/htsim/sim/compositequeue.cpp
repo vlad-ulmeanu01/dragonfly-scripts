@@ -231,7 +231,9 @@ void CompositeQueue::receivePacket(Packet& pkt)
                 } else {
                     // cout << "A [ " << _enqueued_low.size() << " " << _enqueued_high.size() << " ] STRIP" << endl;
                     // cout << "booted_pkt->size(): " << booted_pkt->size();
+
                     booted_pkt->strip_payload(_trim_size);
+                    
                     // cout << "CQ trim at " << _nodename << endl;
                     _num_stripped++;
                     booted_pkt->flow().logTraffic(*booted_pkt, *this, TrafficLogger::PKT_TRIM);
@@ -267,6 +269,11 @@ void CompositeQueue::receivePacket(Packet& pkt)
                             assert(0);
                         }
                     } else {
+                        ///FIXME: uncommenting this results in (without -vcs) => 331: virtual void CompositeQueue::receivePacket(Packet&): Assertion `pkt.header_only()' failed.
+                        ///if the setVC at the end of the fn is commented, assert fail from booted_pkt->strip_payload moves to pkt.strip_payload.
+                        // pkt.setVC(QUEUE_HIGH); ///FIXME
+                        // pkt._justChangedVC = true; ///FIXME
+
                         _queues[QUEUE_HIGH].push(booted_pkt);
                         _queuesize[QUEUE_HIGH] += booted_pkt->size();
                         if (_logger)
@@ -309,7 +316,9 @@ void CompositeQueue::receivePacket(Packet& pkt)
             }
             //strip packet the arriving packet - low priority queue is full
             //cout << "B [ " << _enqueued_low.size() << " " << _enqueued_high.size() << " ] STRIP" << endl;
+
             pkt.strip_payload(_trim_size);
+
             //cout << "CQ trim at " << _nodename << endl;
             _num_stripped++;
             pkt.flow().logTraffic(pkt,*this,TrafficLogger::PKT_TRIM);
@@ -357,6 +366,11 @@ void CompositeQueue::receivePacket(Packet& pkt)
     //if (pkt.type()==NDP)
     //  cout << "H " << pkt.flow().str() << endl;
     Packet* pkt_p = &pkt;
+
+    ///FIXME poate trebuie sa schimbi si aici?
+    pkt.setVC(QUEUE_HIGH); ///FIXME
+    pkt._justChangedVC = true; ///FIXME
+
     _queues[QUEUE_HIGH].push(pkt_p);
     _queuesize[QUEUE_HIGH] += pkt.size();
     if (_logger) _logger->logQueue(*this, QueueLogger::PKT_ENQUEUE, pkt);
