@@ -96,11 +96,14 @@ def edit_default_args(args):
         }
 
         for k, scores in zip(
-            [4, 6, 8],
+            [4, 6, 8, 12, 16, 20],
             list(map(lambda u: ["default"] + list(map(str, u)), [
                 [0, -6] if args.TOPOS_BEST_RAND_DEF_ONLY else [0, -4, -6, -8, -10],
                 [0, -40] if args.TOPOS_BEST_RAND_DEF_ONLY else [0, -20, -40, -60, -80],
-                [-14, -138] if args.TOPOS_BEST_RAND_DEF_ONLY else [-14, -76, -138, -200, -264]
+                [-14, -138] if args.TOPOS_BEST_RAND_DEF_ONLY else [-14, -76, -138, -200, -264],
+                [-1080],
+                [-4082],
+                [-11282],
             ]))
         )
     }
