@@ -135,6 +135,7 @@ class Packet {
         assert(!_is_header);
         _is_header = true;
         _size = trim_size;
+        _vc = 2; ///trimmed packet has to be marked on the high queue.
     }
     virtual void bounce();
     virtual void unbounce(uint16_t pktsize);
