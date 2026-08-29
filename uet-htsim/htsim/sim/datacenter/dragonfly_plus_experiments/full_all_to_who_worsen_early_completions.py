@@ -79,10 +79,10 @@ def generate_worse_tm_file(args, sr: du.SimResult, rap_w: float, tm_file: str):
 
 def run_sim(args, topos: list, tm_file: str):
     pool = mp.Pool(processes = du.CNT_PROCESSES)
-    ht_srs = {}
 
     t_start = time.time()
     
+    # intai rulam simularile de baza.
     cmds = [
         du.get_htsim_cmdlist(args, args.SEEDS[nt], tm_file, topo, logout_fname = f"logout_{du.RUN_ID}_{tid}_{nt}.dat")
         for tid, topo in enumerate(topos) for nt in range(args.CNT_RUNS_PER_TOPO)
@@ -92,9 +92,12 @@ def run_sim(args, topos: list, tm_file: str):
 
     print(f"{topos[0] = }: finished srs_base. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
+    # esti apelat doar cu 3 topos e.g. [-14/0, -14/1, -14/2].
+    # tm_file este parallel_all_to_all_2MB.
+
     cmds = []
-    for rap_w_id, rap_w in enumerate(args.WORSEN_RAPS):
-        for (i, sr), ((tid, topo), nt) in zip(enumerate(srs_base), itertools.product(enumerate(topos), range(args.CNT_RUNS_PER_TOPO))):
+    for (i, sr), ((tid, topo), nt) in zip(enumerate(srs_base), itertools.product(enumerate(topos), range(args.CNT_RUNS_PER_TOPO))):
+        for rap_w_id, rap_w in enumerate(args.WORSEN_RAPS):
             identif = f"{du.RUN_ID}_{rap_w_id}_{tid}_{nt}"
             if args.ALL_TO_WHO == "all":
                 tm_file = os.path.join(args.TM_FOLDER, f"tmp_worse_tm_file_{identif}.cm")
@@ -107,18 +110,24 @@ def run_sim(args, topos: list, tm_file: str):
                     generate_worse_tm_file(args, sr, rap_w, tm_file)
                     cmds.append(du.get_htsim_cmdlist(args, args.SEEDS[nt], tm_file, topo, logout_fname = f"logout_{identif}_{incasted_host}.dat"))
 
-
+    # rulam toate tranz matrix-urile inrautatite deodata.
     srs_worse = pool.map(du.proc_run, cmds)
     print(f"{topos[0] = }: finished srs_worse. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
-    rap_step = len(srs_worse) // len(args.WORSEN_RAPS)
-    for rap_w, id_cmds_start in zip(args.WORSEN_RAPS, range(0, len(srs_worse), rap_step)):
-        ht_srs[rap_w] = srs_worse[id_cmds_start: id_cmds_start + rap_step]
+    ht_srs = {}
+    for srs, rap_ws in [
+        ([du.SimResult([fct for fct, _, _ in sr.fcts], sr.rtx) for sr in srs_base], [0.0]),
+        (srs_worse, args.WORSEN_RAPS)
+    ]:
+        for i, (topo, nt, rap_w) in zip(range(len(srs)), itertools.product(topos, range(args.CNT_RUNS_PER_TOPO), rap_ws)):
+            if topo not in ht_srs:
+                ht_srs[topo] = {}
+            if rap_w not in ht_srs[topo]:
+                ht_srs[topo][rap_w] = []
+            ht_srs[topo][rap_w].append(srs[i])
 
-    ht_srs[0.0] = [du.SimResult([fct for fct, _, _ in sr.fcts], sr.rtx) for sr in srs_base]
-
-    for rap_w_id, _ in enumerate(args.WORSEN_RAPS):
-        for (tid, _), nt in itertools.product(enumerate(topos), range(args.CNT_RUNS_PER_TOPO)):
+    for (tid, _), nt in itertools.product(enumerate(topos), range(args.CNT_RUNS_PER_TOPO)):
+        for rap_w_id, _ in enumerate(args.WORSEN_RAPS):
             identif = f"{du.RUN_ID}_{rap_w_id}_{tid}_{nt}"
 
             if args.ALL_TO_WHO == "all":
@@ -147,26 +156,29 @@ def main(args):
         generate_group_incast_transport_matrix(args, incasted_host = 0)
         tm_file = args.TM_FILE
 
+    ht_srs = run_sim(
+        args,
+        topos = [topo for topo_name in args.TOPOS[args.K] for topo in args.TOPOS[args.K][topo_name]],
+        tm_file = tm_file
+    )
+
+    print(f"Finished batched all topo_names. {round(time.time() - t_start, 3)} s passed.", flush = True)
+
+    cnt_flows = args.CNT_NODES * (args.CNT_NODES - 1) if args.ALL_TO_WHO == "all" else args.CNT_NODES - args.GROUP_SIZE
     for topo_name in args.TOPOS[args.K]:
-        ht_srs = run_sim(
-            args,
-            topos = args.TOPOS[args.K][topo_name],
-            tm_file = tm_file
-        )
+        for rap_w in [0.0] + args.WORSEN_RAPS:
+            all_sims = [sr for topo in args.TOPOS[args.K][topo_name] if topo in ht_srs and rap_w in ht_srs[topo] for sr in ht_srs[topo][rap_w]]
 
-        for rap_w in ht_srs:
-            cnt_flows = args.CNT_NODES * (args.CNT_NODES - 1) if args.ALL_TO_WHO == "all" else args.CNT_NODES - args.GROUP_SIZE
+            print(f"{all_sims = }", flush = True)
 
-            srs = [sr for sr in ht_srs[rap_w] if len(sr.fcts) == cnt_flows]
-            cnt_failed_sims = sum([len(sr.fcts) < cnt_flows for sr in ht_srs[rap_w]])
+            srs = [sr for sr in all_sims if len(sr.fcts) == cnt_flows]
+            cnt_failed_sims = sum([len(sr.fcts) < cnt_flows for sr in all_sims])
 
             ht[f"{topo_name}_{rap_w}"] = {
                 "mean_fcts": np.array([sr.fcts for sr in srs]).mean(axis = 0).tolist() if len(srs) else [],
                 "mean_rtx": np.array([sr.rtx for sr in srs]).mean() if len(srs) else [],
-                "rap_failed_sims": cnt_failed_sims / len(ht_srs[rap_w])
+                "rap_failed_sims": cnt_failed_sims / len(all_sims)
             }
-
-        print(f"Finished {topo_name = }. {round(time.time() - t_start, 3)} s passed.", flush = True)
 
     ht["TOTAL_TIME"] = round(time.time() - t_start, 3)
 
@@ -197,3 +209,4 @@ if __name__ == "__main__":
     args.WORSEN_RAPS = list(map(float, args.WORSEN_RAPS.split('[')[-1].split(']')[0].split(',')))
 
     main(args)
+

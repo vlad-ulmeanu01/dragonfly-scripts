@@ -5,7 +5,7 @@ import os
 import re
 
 
-RUN_ID = int(time.time())
+RUN_ID = int(time.time() * 100)
 
 NODENAME = os.uname().nodename
 NODENAME = "grid.pub.ro" if NODENAME.endswith("grid.pub.ro") else NODENAME
@@ -17,7 +17,7 @@ ROOT = {
 
 CNT_PROCESSES = {
     "vlad-TM1701": 4,
-    "grid.pub.ro": 16
+    "grid.pub.ro": 128
 }[NODENAME]
 
 EXE = os.path.join(ROOT, "uet-htsim/htsim/sim/build/datacenter/htsim_uec")
