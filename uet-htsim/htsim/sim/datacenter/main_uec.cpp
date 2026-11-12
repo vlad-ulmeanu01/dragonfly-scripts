@@ -144,6 +144,8 @@ int main(int argc, char **argv) {
     float ar_sticky_delta = 10;
     Switch::sticky_choices ar_sticky = Switch::PER_PACKET;
 
+    double dfp_oversub_ratio = 2.0;
+
     char* tm_file = NULL;
     char *topo_file = NULL, *topo_dfp_sparse_file = NULL;
     int8_t qa_gate = -1;
@@ -376,6 +378,10 @@ int main(int argc, char **argv) {
         } else if (!strcmp(argv[i],"-topo_dfp_sparse")){
             topo_dfp_sparse_file = argv[i+1];
             cout << "DragonFlyPlus (SPARSE) topology input file: " << topo_dfp_sparse_file << endl;
+            i++;
+        } else if (!strcmp(argv[i],"-dfp_oversub_ratio")){
+            dfp_oversub_ratio = atof(argv[i+1]);
+            cout << "DragonFlyPlus (SPARSE) expected oversubscription ratio: " << dfp_oversub_ratio << endl;
             i++;
         } else if (!strcmp(argv[i],"-q")){
             param_queuesize_set = true;
@@ -843,7 +849,10 @@ int main(int argc, char **argv) {
             else if (topo_type == DFP_SPARSE_T && DragonFlyPlusSwitch::fn == &DragonFlyPlusSwitch::compare_queuesize)
                 DragonFlyPlusSwitch::fn = &DragonFlyPlusSwitch::compare_queuesize_sparse;
 
-            topo[p] = make_unique<DragonFlyPlusTopology>(radix, linkspeed, queuesize, qlf, &eventlist, qt, hop_latency, switch_latency, topo_type, topo_dfp_sparse_file);
+            topo[p] = make_unique<DragonFlyPlusTopology>(
+                radix, linkspeed, queuesize, qlf, &eventlist, qt, hop_latency, switch_latency, topo_type,
+                dfp_oversub_ratio, topo_dfp_sparse_file
+            );
             ///NOTE aici se apeleaza constrctorul tau.
 
             if (topo[p]->no_of_nodes() != no_of_nodes) {
@@ -855,7 +864,7 @@ int main(int argc, char **argv) {
 
         if (topo[p]->get_oversubscription_ratio() > 1 && !UecSrc::_sender_based_cc && !force_disable_oversubscribed_cc) {
             UecSink::_oversubscribed_cc = true;
-            int oversubscription_ratio = 1;
+            double oversubscription_ratio = 1;
             if (topo_type == FAT_TREE_T)
                 oversubscription_ratio = topo[p]->get_oversubscription_ratio();
             else if (topo_type == DFP_DENSE_T || topo_type == DFP_SPARSE_T)

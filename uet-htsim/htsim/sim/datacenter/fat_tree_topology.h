@@ -276,8 +276,8 @@ public:
     // add loggers to record total queue size at switches
     virtual void add_switch_loggers(Logfile& log, simtime_picosec sample_period);
 
-    int get_oversubscription_ratio() override { return _cfg->get_oversubscription_ratio(); };
-    int get_oversubscription_ratio(uint32_t route_strategy) override { return _cfg->get_oversubscription_ratio(); };
+    double get_oversubscription_ratio() override { return _cfg->get_oversubscription_ratio(); };
+    double get_oversubscription_ratio(uint32_t route_strategy) override { return _cfg->get_oversubscription_ratio(); };
 
     uint32_t HOST_POD_SWITCH(uint32_t src){
         return src/_cfg->radix_down(TOR_TIER);

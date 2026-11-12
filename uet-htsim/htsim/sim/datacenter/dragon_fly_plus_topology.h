@@ -76,8 +76,8 @@ public:
     queue_type qt;
 
 
-    DragonFlyPlusTopology(uint32_t p, uint32_t l, uint32_t s, uint32_t h, linkspeed_bps linkspeed, mem_b queuesize, QueueLoggerFactory* logger_factory,EventList* ev,queue_type q,simtime_picosec latency,simtime_picosec switch_latency);
-    DragonFlyPlusTopology(uint32_t radix, linkspeed_bps linkspeed, mem_b queuesize, QueueLoggerFactory* logger_factory,EventList* ev,queue_type q, simtime_picosec latency, simtime_picosec switch_latency, topology_type type = DFP_DENSE_T, const char *topo_dfp_sparse_file = NULL);
+    DragonFlyPlusTopology(uint32_t p, uint32_t l, uint32_t s, uint32_t h, linkspeed_bps linkspeed, mem_b queuesize, QueueLoggerFactory* logger_factory,EventList* ev,queue_type q,simtime_picosec latency,simtime_picosec switch_latency, double oversub_ratio = 2.0, const char *topo_dfp_sparse_file = NULL);
+    DragonFlyPlusTopology(uint32_t radix, linkspeed_bps linkspeed, mem_b queuesize, QueueLoggerFactory* logger_factory, EventList* ev, queue_type q, simtime_picosec latency, simtime_picosec switch_latency, topology_type type = DFP_DENSE_T, double oversub_ratio = 2.0, const char *topo_dfp_sparse_file = NULL);
 
     void init_network();
     virtual vector<const Route*>* get_bidir_paths(uint32_t src, uint32_t dest, bool reverse);
@@ -103,8 +103,8 @@ public:
     uint32_t getNGroups() {return _no_of_groups;};
     uint32_t getNGlobalLinks() {return _h;};
     uint32_t getTopologyType() {return _type;};
-    int get_oversubscription_ratio() {return get_oversubscription_ratio(1);}; // Basically route_strategy=Switch::ECMP
-    int get_oversubscription_ratio(uint32_t route_strategy);
+    double get_oversubscription_ratio() {return get_oversubscription_ratio(1);}; // Basically route_strategy=Switch::ECMP
+    double get_oversubscription_ratio(uint32_t route_strategy);
     simtime_picosec get_diameter_latency() {return 8 * _hop_latency + 7 * _switch_latency;};
     // simtime_picosec get_diameter_latency() {return 5 * _hop_latency + 4 * _switch_latency;}; ///FIXME: uncomment if only min length path allowed.
     simtime_picosec get_two_point_diameter_latency(int src, int dst);
@@ -119,6 +119,7 @@ private:
     void set_params();
 
     uint32_t _k, _p, _l, _s, _h;
+    double _oversub_ratio;
     uint32_t _type;
     const char *_topo_dfp_sparse_file;
     std::vector<std::vector<uint32_t>> _topo_dfp_sparse_cfg;

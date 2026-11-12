@@ -28,8 +28,8 @@ public:
     virtual void add_switch_loggers(Logfile& log, simtime_picosec sample_period) {
         abort();
     }
-    virtual int get_oversubscription_ratio() {abort();};
-    virtual int get_oversubscription_ratio(uint32_t route_strategy) {abort();};
+    virtual double get_oversubscription_ratio() {abort();};
+    virtual double get_oversubscription_ratio(uint32_t route_strategy) {abort();};
     virtual uint16_t get_diameter() {return _diameter;}
     virtual simtime_picosec get_two_point_diameter_latency(int src, int dst) {abort();};
     virtual simtime_picosec get_diameter_latency() {abort();};

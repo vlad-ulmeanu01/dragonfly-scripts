@@ -15,9 +15,14 @@ ROOT = {
     "grid.pub.ro": "/export/home/acs/stud/v/vlad_adrian.ulmeanu/Probleme/dragonfly-scripts"
 }[NODENAME]
 
+DEV_SHM_ROOT = {
+    "vlad-TM1701": "/dev/shm",
+    "grid.pub.ro": "/dev/shm" # /dev/shm/vlad_adrian.ulmeanu
+}[NODENAME]
+
 CNT_PROCESSES = {
     "vlad-TM1701": 4,
-    "grid.pub.ro": 128
+    "grid.pub.ro": 128 # 32
 }[NODENAME]
 
 EXE = os.path.join(ROOT, "uet-htsim/htsim/sim/build/datacenter/htsim_uec")
@@ -50,6 +55,7 @@ def get_default_parser():
     parser.add_argument("--LINK_SPEED", type = int, default = 10**5, help = "Link speed (bits per second)") # 100 Mbps
     parser.add_argument("--END_TIME", type = int, default = 2 * 10**5, help = "Simulation end time (us).")
     parser.add_argument("--CNT_PATHS", type = int, default = 128, help = "Max # paths a flow can be split into.")
+    parser.add_argument("--OVERSUB_RATIO", type = float, default = 2.0, help = "(Used by RCCC) What is the worst expected relative oversubscription ratio of the topology?")
     
     parser.add_argument(
         "--DO_CC", type = str, default = "sender",
@@ -74,6 +80,11 @@ def get_default_parser():
         help = "Temporary .cm file used by an experiment, specific for it."
     )
 
+    parser.add_argument(
+        "--USE_DEV_SHM", default = "False", choices = ["True", "False"],
+        help = "htsim writes some files to disk during simulations, e.g. logout.dat. Should they be writen to /dev/shm?"
+    )
+
     return parser
 
 
@@ -86,6 +97,7 @@ def edit_default_args(args):
     args.GROUP_SIZE = args.H**2
 
     args.TOPOS_BEST_RAND_DEF_ONLY = (args.TOPOS_BEST_RAND_DEF_ONLY == "True")
+    args.USE_DEV_SHM = (args.USE_DEV_SHM == "True")
 
     # e.g. TOPOS[k = 8][score = "-14"] remembers 5 config files with topologies having that score.
     args.TOPOS = {
@@ -116,7 +128,7 @@ def get_default_ht(args):
         "K": args.K,
         "CNT_RUNS_PER_TOPO": args.CNT_RUNS_PER_TOPO, "TOPOLOGIES_PER_SCORE": args.TOPOLOGIES_PER_SCORE,
         "SEEDS": args.SEEDS[:args.CNT_RUNS_PER_TOPO], "FLOW_SIZE": args.FLOW_SIZE, "LINK_SPEED": args.LINK_SPEED,
-        "END_TIME": args.END_TIME, "CNT_PATHS": args.CNT_PATHS, "DO_CC": args.DO_CC,
+        "END_TIME": args.END_TIME, "CNT_PATHS": args.CNT_PATHS, "DO_CC": args.DO_CC, "OVERSUB_RATIO": args.OVERSUB_RATIO,
         "BDP_PKTS": args.BDP_PKTS, "QUEUE_SIZE": args.QUEUE_SIZE, "ECN": [args.ECN_LOW, args.ECN_HI],
         "TOTAL_TIME": 0
     }
@@ -150,6 +162,9 @@ def proc_run(cmdlist):
 
 
 def get_htsim_cmdlist(args, seed: int, tm_file: str, topo: str, logout_fname: str):
+    if args.USE_DEV_SHM and not logout_fname.startswith(DEV_SHM_ROOT):
+        logout_fname = os.path.join(DEV_SHM_ROOT, logout_fname)
+
     cmdlist = [
         EXE,
         "-o", logout_fname,
@@ -166,6 +181,9 @@ def get_htsim_cmdlist(args, seed: int, tm_file: str, topo: str, logout_fname: st
 
     if topo:
         cmdlist.extend(["-topo_dfp_sparse", f"{topo}"])
+
+    if args.DO_CC == "receiver":
+        cmdlist.extend(["-dfp_oversub_ratio", f"{args.OVERSUB_RATIO}"])
 
     if args.DO_CC in ["no_cc_unlimited", "no_cc_pfc"]:
         with open(tm_file) as fin:
@@ -209,6 +227,10 @@ def get_htsim_cmdlist(args, seed: int, tm_file: str, topo: str, logout_fname: st
 
 
 def post_run_cleanup(args):
-    os.system(f"rm logout_{RUN_ID}_*.dat")
+    if not args.USE_DEV_SHM:
+        os.system(f"rm logout_{RUN_ID}_*.dat")
+    else:
+        os.system(f"rm {DEV_SHM_ROOT}/logout_{RUN_ID}_*.dat")
+
     os.system("rm idmap.txt")
     os.system(f"rm {args.TM_FILE}")

@@ -26,7 +26,8 @@ string itoa(uint64_t n);
 
 DragonFlyPlusTopology::DragonFlyPlusTopology(
     uint32_t p, uint32_t l, uint32_t s, uint32_t h, linkspeed_bps linkspeed, mem_b queuesize,
-    QueueLoggerFactory* logger_factory, EventList* ev, queue_type q, simtime_picosec latency, simtime_picosec switch_latency
+    QueueLoggerFactory* logger_factory, EventList* ev, queue_type q, simtime_picosec latency, simtime_picosec switch_latency,
+    double oversub_ratio, const char *topo_dfp_sparse_file
 ) {
     _queuesize = queuesize;
     _logger_factory = logger_factory;
@@ -36,6 +37,9 @@ DragonFlyPlusTopology::DragonFlyPlusTopology(
     _hop_latency = latency;
     _switch_latency = switch_latency;
     _diameter = 3;
+
+    _oversub_ratio = oversub_ratio;
+    _topo_dfp_sparse_file = topo_dfp_sparse_file;
  
     _p = p;
     _l = l;
@@ -54,7 +58,8 @@ DragonFlyPlusTopology::DragonFlyPlusTopology(
 
 DragonFlyPlusTopology::DragonFlyPlusTopology(
     uint32_t radix, linkspeed_bps linkspeed, mem_b queuesize, QueueLoggerFactory* logger_factory,
-    EventList* ev, queue_type q, simtime_picosec latency, simtime_picosec switch_latency, topology_type type, const char *topo_dfp_sparse_file
+    EventList* ev, queue_type q, simtime_picosec latency, simtime_picosec switch_latency, topology_type type,
+    double oversub_ratio, const char *topo_dfp_sparse_file
 ) {
     _queuesize = queuesize;
     _logger_factory = logger_factory;
@@ -64,9 +69,10 @@ DragonFlyPlusTopology::DragonFlyPlusTopology(
     _hop_latency = latency;
     _switch_latency = switch_latency;
     _diameter = 3;
-  
+
     _k = radix;
     _type = type;
+    _oversub_ratio = oversub_ratio;
     _topo_dfp_sparse_file = topo_dfp_sparse_file;
 
     if (_type == DFP_SPARSE_T) {
@@ -447,11 +453,18 @@ void DragonFlyPlusTopology::add_switch_loggers(Logfile& log, simtime_picosec sam
     }
 }
 
-int DragonFlyPlusTopology::get_oversubscription_ratio(uint32_t route_strategy) {
+double DragonFlyPlusTopology::get_oversubscription_ratio(uint32_t route_strategy) {
     // Oversubscription when non-minimal paths are used
     // Assumed recommended DragonFly+ params
     if (route_strategy == Switch::ADAPTIVE_ROUTING || route_strategy == Switch::ECMP_ALL) {
-        return 2;
+        // return 2;
+
+        // std::cerr << "DBG DragonFlyPlusTopology::get_oversubscription_ratio\n";
+        // return 1.4142;
+
+        // return 1;
+
+        return _oversub_ratio;
     }
 
     // Oversubscription for only when minimal paths are used
